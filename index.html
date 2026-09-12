@@ -2903,7 +2903,9 @@ function saveUnitQuizRecord(level, unit, accuracy) {
   } catch(e) {}
 }
 // 1. 全域模式變數
-let currentQuizMode = 'word';
+// 將原本的 currentQuizMode 拆分
+let currentQuizTab = 'word';      // 'word' (單字測驗) 或 'exam' (歷屆真題)
+let currentQuestionType = 'en2zh'; // 'en2zh' 或 'zh2en'
 
 // 2. 主大廳入口事件
 function openPastExamMode() {
