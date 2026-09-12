@@ -1920,12 +1920,12 @@
       showQuizResultModal();
       return;
     }
-
+  
     const qItem = quizQueue[currentQuizIndex];
     currentQuizTarget = qItem.wordObj || qItem;
-    currentQuizMode = qItem.mode || 'en2zh';
+    currentQuestionType = qItem.mode || 'en2zh'; // 改用 currentQuestionType
     
-    //處理題目出處顯示
+    // 處理題目出處顯示
     const sourceTag = document.getElementById('quizSourceTag');
     if (sourceTag) {
       if (currentQuizTarget.source) {
@@ -1935,38 +1935,38 @@
         sourceTag.style.display = 'none';
       }
     }
-
+  
     const allWords = getAllAvailableWords();
-
     document.getElementById('quizProgressTitle').innerText = `題目 ${currentQuizIndex + 1}/${quizQueue.length}`;
     
     const starBtn = document.getElementById('quizStarBtn');
     if (isWordStarred(currentQuizTarget)) starBtn.classList.add('active');
     else starBtn.classList.remove('active');
-
+  
     const container = document.getElementById('quizOptionsContainer');
     container.innerHTML = '';
-
+  
     const distractors = allWords
       .filter(w => w.word !== currentQuizTarget.word)
       .sort(() => 0.5 - Math.random())
       .slice(0, 3);
-
-    if (currentQuizMode === 'en2zh') {
+  
+    // 此處改用 currentQuestionType 進行判斷
+    if (currentQuestionType === 'en2zh') {
       document.getElementById('quizWord').innerText = currentQuizTarget.word || '';
       document.getElementById('quizPhoneticWrap').style.display = 'flex';
       document.getElementById('quizPhonetic').innerText = currentQuizTarget.phonetic || currentQuizTarget.kk || '';
-
+  
       const targetTrans = (currentQuizTarget.pos || '') + " " + (currentQuizTarget.trans || currentQuizTarget.translation || currentQuizTarget.meaning || '');
-
+  
       let choices = distractors.map(d => ({
         isCorrect: false,
         text: (d.pos || '') + " " + (d.trans || d.translation || d.meaning || '')
       }));
-
+  
       choices.push({ isCorrect: true, text: targetTrans });
       choices.sort(() => 0.5 - Math.random());
-
+  
       choices.forEach(c => {
         const btn = document.createElement('button');
         btn.className = 'quiz-opt-btn';
@@ -1974,21 +1974,21 @@
         btn.onclick = () => handleQuizAnswer(c.isCorrect);
         container.appendChild(btn);
       });
-
+  
       speakText(currentQuizTarget.word);
     } else {
       const targetTrans = (currentQuizTarget.pos || '') + " " + (currentQuizTarget.trans || currentQuizTarget.translation || currentQuizTarget.meaning || '');
       document.getElementById('quizWord').innerText = targetTrans;
       document.getElementById('quizPhoneticWrap').style.display = 'none';
-
+  
       let choices = distractors.map(d => ({
         isCorrect: false,
         text: d.word || ''
       }));
-
+  
       choices.push({ isCorrect: true, text: currentQuizTarget.word || '' });
       choices.sort(() => 0.5 - Math.random());
-
+  
       choices.forEach(c => {
         const btn = document.createElement('button');
         btn.className = 'quiz-opt-btn';
@@ -1997,7 +1997,7 @@
         container.appendChild(btn);
       });
     }
-
+  
     const unknownBtn = document.createElement('button');
     unknownBtn.className = 'quiz-opt-btn quiz-opt-unknown';
     unknownBtn.innerText = '❓ 我不知道';
@@ -2985,7 +2985,157 @@ if (transText && currentQuizTarget) {
   transText.innerHTML = sourceHTML + transHTML + explHTML;
   if (transBox) transBox.classList.add('show');
 }
-  
+
+  /* --- 頁籤切換與歷屆真題補齊函數 --- */
+  function switchQuizTab(mode) {
+    currentQuizTab = mode;
+    const tabWord = document.getElementById('tabModeWord');
+    const tabExam = document.getElementById('tabModeExam');
+    
+    if (mode === 'word') {
+      if (tabWord) tabWord.classList.add('active');
+      if (tabExam) tabExam.classList.remove('active');
+    } else if (mode === 'exam') {
+      if (tabExam) tabExam.classList.add('active');
+      if (tabWord) tabWord.classList.remove('active');
+      openPastExamMode();
+    }
+  }
+
+  function openPastExamMode() {
+    if (typeof examQuestions === 'undefined' || !examQuestions || examQuestions.length === 0) {
+      alert("暫無歷屆真題資料！");
+      return;
+    }
+    quizQueue = examQuestions.map(q => ({ wordObj: q, mode: 'en2zh' }));
+    currentQuizIndex = 0;
+    quizCorrectCount = 0;
+    quizWrongCount = 0;
+    quizWrongList = [];
+    showPage('pageQuiz');
+    renderQuizQuestion();
+  }
+
+  /* --- 第六區塊：副本冒險地下城邏輯補全 --- */
+  function openBattleDungeonLobby() {
+    showPage('pageBattleDungeonLobby');
+  }
+
+  let bossHp = 1000;
+  let maxBossHp = 1000;
+  let playerHp = 100;
+  let maxPlayerHp = 100;
+  let bossTimeLeft = 60;
+  let bossCombo = 0;
+  let bossTimerId = null;
+  let currentBossTarget = null;
+
+  function startBossBattle() {
+    const allWords = getAllAvailableWords();
+    if (allWords.length === 0) {
+      alert("目前尚無可挑戰的單字資料！");
+      return;
+    }
+    bossHp = 1000;
+    playerHp = 100;
+    bossCombo = 0;
+    bossTimeLeft = 60;
+    showPage('pageBossBattle');
+    updateBossUI();
+    
+    if (bossTimerId) clearInterval(bossTimerId);
+    bossTimerId = setInterval(() => {
+      bossTimeLeft--;
+      const timerEl = document.getElementById('bossTimerText');
+      if (timerEl) timerEl.innerText = `⏱️ ${bossTimeLeft} 秒`;
+      if (bossTimeLeft <= 0) {
+        clearInterval(bossTimerId);
+        alert("⏱️ 時間到！討伐失敗！");
+        showPage('pageBattleDungeonLobby');
+      }
+    }, 1000);
+
+    renderBossQuestion();
+  }
+
+  function updateBossUI() {
+    const bossHpText = document.getElementById('bossHpText');
+    const bossHpBar = document.getElementById('bossHpBar');
+    const playerHpText = document.getElementById('playerHpText');
+    const comboBadge = document.getElementById('bossComboBadge');
+
+    if (bossHpText) bossHpText.innerText = `${Math.max(0, bossHp)} / ${maxBossHp}`;
+    if (bossHpBar) bossHpBar.style.width = `${Math.max(0, (bossHp / maxBossHp) * 100)}%`;
+    if (playerHpText) playerHpText.innerText = `❤️ 玩家 HP: ${Math.max(0, playerHp)}/${maxPlayerHp}`;
+    if (comboBadge) comboBadge.innerText = `🔥 Combo x${bossCombo}`;
+  }
+
+  function renderBossQuestion() {
+    const allWords = getAllAvailableWords();
+    currentBossTarget = allWords[Math.floor(Math.random() * allWords.length)];
+    
+    const wordEl = document.getElementById('bossQuizWord');
+    if (wordEl) wordEl.innerText = currentBossTarget.word;
+
+    const container = document.getElementById('bossQuizOptions');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const distractors = allWords
+      .filter(w => w.word !== currentBossTarget.word)
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 3);
+
+    const targetTrans = (currentBossTarget.pos || '') + " " + (currentBossTarget.trans || currentBossTarget.translation || currentBossTarget.meaning || '');
+    let choices = distractors.map(d => ({ isCorrect: false, text: (d.pos || '') + " " + (d.trans || d.translation || d.meaning || '') }));
+    choices.push({ isCorrect: true, text: targetTrans });
+    choices.sort(() => 0.5 - Math.random());
+
+    choices.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'quiz-opt-btn';
+      btn.innerText = c.text;
+      btn.onclick = () => handleBossAnswer(c.isCorrect);
+      container.appendChild(btn);
+    });
+  }
+
+  function handleBossAnswer(isCorrect) {
+    if (isCorrect) {
+      bossCombo++;
+      const damage = 100 + (bossCombo * 20);
+      bossHp -= damage;
+      addFarmResource(2, 0);
+    } else {
+      bossCombo = 0;
+      playerHp -= 20;
+    }
+    updateBossUI();
+
+    if (bossHp <= 0) {
+      clearInterval(bossTimerId);
+      addFarmResource(10, 2);
+      alert("🎉 恭喜擊敗 BOSS！獲得大量水滴與肥料獎勵！");
+      showPage('pageBattleDungeonLobby');
+      return;
+    }
+
+    if (playerHp <= 0) {
+      clearInterval(bossTimerId);
+      alert("💀 玩家 HP 耗盡，討伐失敗！");
+      showPage('pageBattleDungeonLobby');
+      return;
+    }
+
+    renderBossQuestion();
+  }
+
+  async function confirmExitBoss() {
+    if (await customConfirm("確定要退出 BOSS 討伐戰嗎？")) {
+      if (bossTimerId) clearInterval(bossTimerId);
+      showPage('pageBattleDungeonLobby');
+    }
+  }
 </script>
 </body>
 </html>
