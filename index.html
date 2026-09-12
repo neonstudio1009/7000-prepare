@@ -1,0 +1,2989 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>速讀單字系統</title>
+  <style>
+    :root {
+      --bg-main: #121212;
+      --card-bg: #1e1e1e;
+      --card-inner-bg: #252525;
+      --accent-yellow: #ffb74d;
+      --accent-blue: #3b82f6;
+      --accent-orange: #f59e0b;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --text-primary: #ffffff;
+      --text-secondary: #9e9e9e;
+      --border-color: #2c2c2c;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; -webkit-tap-highlight-color: transparent; /* 清除點擊時的透明藍/灰色高亮區塊 */
+    -webkit-touch-callout: none;             /* 禁用 iOS/Android 行動端長按跳出複製選單 */
+    -webkit-user-select: none;               /* Safari / Chrome 防選取 */
+    -khtml-user-select: none;                /* Konqueror 防選取 */
+    -moz-user-select: none;                  /* Firefox 防選取 */
+    -ms-user-select: none;                   /* IE/Edge 防選取 */
+    user-select: none;}
+    body { background-color: #000; color: var(--text-primary); display: flex; justify-content: center; min-height: 100vh; overflow-x: hidden; }
+
+    .app-container { width: 100%; max-width: 480px; background-color: var(--bg-main); min-height: 100vh; display: flex; flex-direction: column; position: relative; }
+    
+    .page { 
+      display: none; 
+      flex-direction: column; 
+      height: 100vh; 
+      overflow-y: auto; 
+      padding: 16px; 
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.3s cubic-bezier(0.25, 1, 0.5, 1), transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .page.active { display: flex; opacity: 1; transform: translateY(0); }
+    .page.has-bottom-nav { padding-bottom: 76px; }
+
+    button, .menu-card, .grid-item, .stat-card, .word-item, .quiz-opt-btn, .card-nav-btn, .modal-btn, .keypad-btn, .farm-btn {
+      transition: transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    button:active, .menu-card:active, .grid-item:active, .stat-card:active, .word-item:active, .quiz-opt-btn:active, .card-nav-btn:active, .modal-btn:active, .keypad-btn:active, .farm-btn:active {
+      transform: scale(0.96);
+    }
+
+    /* 底部導覽列 */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      height: 60px;
+      background: #181818;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 500;
+    }
+    .bottom-nav .nav-btn {
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      border-top: 3px solid transparent;
+    }
+    .bottom-nav .nav-btn.active {
+      color: var(--accent-yellow);
+      border-top-color: var(--accent-yellow);
+      background: rgba(255, 183, 77, 0.05);
+    }
+
+    .top-bar { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 12px; }
+    .back-btn { background: none; border: none; color: var(--text-primary); font-size: 1.5rem; cursor: pointer; padding: 0 8px; }
+    .bar-title { font-size: 0.95rem; font-weight: bold; color: var(--text-secondary); text-align: center; }
+
+    .lobby-header { text-align: center; margin: 20px 0 16px 0; }
+    .lobby-header h1 { font-size: 1.6rem; color: var(--accent-yellow); font-weight: bold; }
+    .lobby-header p { font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px; }
+    .menu-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 18px; display: flex; align-items: center; gap: 16px; cursor: pointer; margin-top: 12px; }
+    .menu-card:active { border-color: var(--accent-yellow); }
+
+    .grid-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 8px; }
+    .grid-item { 
+      background: var(--card-bg); 
+      border: 1px solid var(--border-color); 
+      border-radius: 14px; 
+      padding: 18px 14px; 
+      text-align: center; 
+      cursor: pointer; 
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 125px;
+    }
+    .grid-item.empty-unit { opacity: 0.5; }
+    .grid-item .title { font-size: 1.1rem; font-weight: bold; color: var(--accent-yellow); }
+    .grid-item .subtitle { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; }
+
+    .stat-card {
+      background: var(--card-bg); 
+      border: 1px solid var(--border-color); 
+      border-radius: 14px; 
+      padding: 14px 12px; 
+      text-align: center; 
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: auto;
+    }
+    .stat-card .title { font-size: 1.2rem; font-weight: bold; color: var(--accent-yellow); }
+    .stat-card .subtitle { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; }
+
+    .grid-progress-container { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; width: 100%; }
+    .progress-bar-wrap { width: 100%; height: 6px; background-color: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+    .progress-bar-fill.white { background-color: rgba(255, 255, 255, 0.75); }
+    .progress-bar-fill.green { background-color: var(--accent-green); }
+    .progress-label { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 2px; }
+
+    /* 植樹場樣式 */
+    .farm-tree-stage {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 24px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .tree-icon-large {
+      font-size: 5.5rem;
+      margin: 16px 0;
+      transition: transform 0.3s ease;
+    }
+    .farm-actions {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+    }
+    .farm-btn {
+      flex: 1;
+      padding: 14px;
+      border-radius: 14px;
+      border: none;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .farm-btn-water { background: #1e3a8a; color: #93c5fd; border: 1px solid #2563eb; }
+    .farm-btn-fertilizer { background: #365314; color: #bef264; border: 1px solid #65a30d; }
+
+    .word-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .word-item { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .word-item .w-title { font-size: 1.1rem; font-weight: bold; color: var(--text-primary); }
+    .word-item .w-trans { font-size: 0.85rem; color: var(--text-secondary); }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+    .empty-state div { font-size: 2.5rem; margin-bottom: 10px; }
+
+    .card-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
+    .card-progress { font-size: 1.2rem; font-weight: bold; color: #ffffff; text-align: center; }
+    .card-unit-name { font-size: 0.8rem; color: var(--text-secondary); text-align: center; margin-top: 2px; }
+
+    .card-body { padding: 20px 0; flex: 1; }
+    .card-word-title { font-size: 2.5rem; font-weight: bold; color: var(--accent-yellow); margin-bottom: 6px; transition: color 0.2s ease; }
+    .card-phonetic { font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    .audio-icon { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--accent-blue); }
+    .card-meaning { font-size: 1.2rem; color: #ffffff; font-weight: bold; margin-bottom: 20px; }
+
+    .rel-section { background: var(--card-inner-bg); border-radius: 10px; padding: 14px; margin-bottom: 24px; border-left: 4px solid var(--accent-blue); display: flex; flex-direction: column; gap: 10px; }
+    .rel-row { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; }
+    .tag-blue { color: var(--accent-blue); font-weight: bold; }
+    .tag-orange { color: var(--accent-orange); font-weight: bold; }
+    .rel-text { color: #e5e7eb; }
+
+    .example-block { display: flex; flex-direction: column; gap: 12px; }
+    .example-en { font-size: 1.05rem; color: #ffffff; line-height: 1.5; }
+    .example-en mark { background: none; color: var(--accent-yellow); font-weight: bold; }
+    .example-ch { font-size: 0.95rem; color: var(--text-secondary); margin-top: 4px; }
+
+    .card-nav { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0 16px 0; }
+    .card-nav-btn { flex: 1; padding: 14px; background: var(--card-bg); border: 1px solid var(--border-color); color: #ffffff; border-radius: 24px; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; }
+
+    .pin-container { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 20px; }
+    .pin-display-box { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px 32px; text-align: center; width: 80%; }
+    .pin-display-title { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; }
+    .pin-display-val { font-size: 2rem; font-weight: bold; color: var(--accent-yellow); letter-spacing: 2px; min-height: 42px; display: flex; align-items: center; justify-content: center; }
+    .keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 80%; max-width: 320px; }
+    .keypad-btn { width: 100%; aspect-ratio: 1; border-radius: 50%; background: var(--card-bg); border: 1px solid var(--border-color); color: #fff; font-size: 1.5rem; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .keypad-btn.action-btn { background: #282828; font-size: 1.2rem; color: var(--accent-orange); }
+    .keypad-btn.confirm-btn { background: var(--accent-yellow); color: #000; font-size: 1.3rem; }
+
+    .quiz-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px 20px; text-align: center; margin-top: 10px; margin-bottom: 20px; position: relative; }
+    .quiz-word { font-size: 2.2rem; font-weight: bold; color: var(--accent-yellow); margin-bottom: 8px; }
+    .quiz-options { display: flex; flex-direction: column; gap: 12px; }
+    .quiz-opt-btn { background: var(--card-inner-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px 16px; text-align: left; color: #fff; font-size: 1rem; cursor: pointer; }
+    .quiz-opt-unknown { background: #2a2015; border-color: #523719; color: var(--accent-orange); text-align: center; font-weight: bold; margin-top: 6px; }
+    .star-btn { background: none; border: none; font-size: 1.6rem; color: #555; cursor: pointer; transition: transform 0.2s, color 0.2s; }
+    .star-btn.active { color: #f59e0b; }
+
+    .modal-overlay { 
+      display: flex; 
+      position: fixed; 
+      top: 0; left: 0; right: 0; bottom: 0; 
+      background: rgba(0,0,0,0.85); 
+      backdrop-filter: blur(4px); 
+      z-index: 1000; 
+      justify-content: center; 
+      align-items: center; 
+      padding: 16px; 
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
+    
+    .modal-card { 
+      background: var(--bg-main); 
+      border: 1px solid var(--border-color); 
+      border-radius: 20px; 
+      width: 100%; 
+      max-width: 440px; 
+      max-height: 90vh; 
+      overflow-y: auto; 
+      padding: 20px; 
+      display: flex; 
+      flex-direction: column; 
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      transform: scale(0.85);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .modal-overlay.active .modal-card { transform: scale(1); }
+
+    .modal-btn { width: 100%; padding: 14px; background: var(--accent-yellow); color: #000; border: none; border-radius: 24px; font-size: 1.05rem; font-weight: bold; cursor: pointer; margin-top: 12px; text-align: center; }
+    .modal-btn.secondary-btn { background: var(--card-inner-bg); color: var(--accent-yellow); border: 1px solid var(--accent-yellow); }
+
+    .modal-overlay.hidden { display: none; }
+    
+    .modal-box {
+      background: #222222;
+      color: #ffffff;
+      padding: 24px;
+      border-radius: 12px;
+      width: 85%;
+      max-width: 320px;
+      border: 1px solid #333;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+    .modal-box p { margin-bottom: 20px; font-size: 16px; line-height: 1.5; }
+    .modal-actions { display: flex; gap: 12px; }
+    .modal-actions .btn { flex: 1; padding: 10px 0; border-radius: 8px; border: none; font-size: 15px; cursor: pointer; transition: background 0.2s; }
+    .btn-secondary { background: #333333; color: #cccccc; }
+    .btn-primary { background: #3d3d3d; color: #ffffff; font-weight: bold; }
+    /* ===== 第六區塊：副本冒險地下城樣式 ===== */
+    .boss-card {
+      background: linear-gradient(135deg, #2a0808 0%, #1a1a1a 100%);
+      border: 1px solid #7f1d1d;
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .boss-avatar { font-size: 3.5rem; margin: 4px 0; animation: bossPulse 2s infinite ease-in-out; }
+    @keyframes bossPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+    .status-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; font-size: 0.85rem; }
+    .combo-badge { background: var(--accent-orange); color: #000; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
+
+    .spelling-board {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-top: 10px;
+    }
+    .spelling-slots { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; min-height: 48px; }
+    .spelling-slot {
+      width: 38px; height: 42px; border-bottom: 3px solid var(--accent-yellow);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; font-weight: bold; color: var(--accent-yellow);
+      cursor: pointer; background: rgba(255, 183, 77, 0.1); border-radius: 6px;
+    }
+    .spelling-pool { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+    .spelling-tile {
+      width: 40px; height: 42px; background: var(--card-inner-bg);
+      border: 1px solid var(--border-color); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; font-weight: bold; color: #fff; cursor: pointer;
+      box-shadow: 0 3px 0 #111;
+    }
+    .spelling-tile:active { transform: translateY(2px); box-shadow: 0 1px 0 #111; }
+    .spelling-tile.used { opacity: 0.15; pointer-events: none; }
+    /* 自訂彈窗背景遮罩 */
+    .custom-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    
+    /* 彈窗主體 */
+    .custom-modal-box {
+      background: #181818;
+      border: 1px solid #333;
+      border-radius: 16px;
+      padding: 24px;
+      width: 85%;
+      max-width: 320px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+      animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    
+    .custom-modal-text {
+      color: #ffffff;
+      font-size: 1.1rem;
+      line-height: 1.6;
+      margin-bottom: 20px;
+      white-space: pre-line;
+    }
+    
+    .custom-modal-btn {
+      background: #fca311;
+      color: #000;
+      font-weight: bold;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      width: 100%;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    
+    .custom-modal-btn:active {
+      opacity: 0.8;
+    }
+    
+    @keyframes popIn {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    /* 模式切換頁籤 */
+    .mode-tab-container {
+      display: flex;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 14px;
+      gap: 4px;
+    }
+    .mode-tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-weight: bold;
+      font-size: 0.9rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .mode-tab-btn.active {
+      background: var(--accent-yellow);
+      color: #000;
+    }
+    
+    /* 歷屆試題專屬中文翻譯區塊（預設隱藏） */
+    .exam-trans-box {
+      background: var(--card-inner-bg);
+      border-left: 4px solid var(--accent-blue);
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 14px;
+      text-align: left;
+      display: none; /* 預設隱藏 */
+    }
+    .exam-trans-box.show {
+      display: block; /* 答題完成後透過 JS 新增 .show 顯示 */
+    }
+    .exam-trans-title {
+      font-size: 0.85rem;
+      color: var(--accent-blue);
+      font-weight: bold;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .exam-trans-text {
+      font-size: 0.95rem;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- 1. 主大廳 -->
+    <div id="pageLobby" class="page has-bottom-nav active">
+      <div class="lobby-header">
+        <h1>速讀單字系統</h1>
+        <p id="dbStatus">五功能整合學習系統</p>
+      </div>
+
+      <div class="grid-container" style="margin-bottom: 4px;">
+        <div class="stat-card">
+          <div class="title" id="streakDays">🔥 0 天</div>
+          <div class="subtitle">連續登入天數</div>
+        </div>
+        <div class="stat-card">
+          <div class="title" id="masteredCount">✅ 0 字</div>
+          <div class="subtitle">掌握單字 (我很熟)</div>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="openLevelCategory()">
+        <div style="font-size: 2rem;">🎴</div>
+        <div>
+          <h2 style="font-size: 1.2rem;">7000 單字卡</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">7大等級 / 140個單元 / 實時進度追蹤</p>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="openQuizPinPage()">
+        <div style="font-size: 2rem;">🎯</div>
+        <div>
+          <h2 style="font-size: 1.2rem;">7000 單字大挑戰</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">四選一特訓 / 即時數據分析</p>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="openUnitQuizLevelCategory()">
+        <div style="font-size: 2rem;">📝</div>
+        <div>
+          <h2 style="font-size: 1.2rem;">單元制刷題題庫</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">7大等級 / 20單元 / 三種刷題模式</p>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="openWrongBookLobby()">
+        <div style="font-size: 2rem;">⭐</div>
+        <div>
+          <h2 style="font-size: 1.2rem;">智能錯題與收藏本</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">錯題自動累積 / 星號標記 / 專屬特訓</p>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="openFamiliarityLobby()">
+        <div style="font-size: 2rem;">📊</div>
+        <div>
+          <h2 style="font-size: 1.2rem;">學習整理</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">我很熟 / 我不會 單字分類整理與瀏覽</p>
+        </div>
+      </div>
+      
+      <div class="menu-card" onclick="openBattleDungeonLobby()">
+        <div style="font-size: 2rem;">⚔️</div>
+        <div>
+          <h2 style="font-size: 1.2rem;">副本冒險地下城</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">BOSS 討伐戰 / 拼字地下城</p>
+        </div>
+      </div>
+      <div class="menu-card" onclick="openPastExamMode()">
+        <div style="font-size: 2rem;">🏛️</div>
+        <div>
+          <h2 style="font-size: 1.2rem;">歷屆真題特訓</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">歷屆大考試題實戰 / 詳解與全句翻譯</p>
+        </div>
+      </div>
+    </div>
+    
+
+    <!-- 12. 植樹場頁面 -->
+    <div id="pageTreeFarm" class="page has-bottom-nav">
+      <div class="top-bar">
+        <div style="width: 24px;"></div>
+        <div class="bar-title">🌲 綠色學習植樹場</div>
+        <div style="width: 24px;"></div>
+      </div>
+
+      <div class="grid-container" style="margin-bottom: 12px;">
+        <div class="stat-card">
+          <div class="title" id="farmWaterCount">💧 0</div>
+          <div class="subtitle">水滴 (學習/刷題獲得)</div>
+        </div>
+        <div class="stat-card">
+          <div class="title" id="farmFertilizerCount">🧪 0</div>
+          <div class="subtitle">肥料 (每日登入獲得)</div>
+        </div>
+      </div>
+
+      <div class="farm-tree-stage">
+        <div style="font-size: 0.85rem; color: var(--text-secondary);" id="treeStageName">階段 1/5：種子發芽</div>
+        <div class="tree-icon-large" id="treeEmoji">🌱</div>
+        <div style="font-size: 1.2rem; font-weight: bold; color: var(--accent-yellow); margin-bottom: 12px;" id="treeTitle">知識幼苗</div>
+
+        <div class="grid-progress-container" style="width: 100%;">
+          <div class="progress-label">
+            <span>成長經驗值</span>
+            <span id="treeExpText">0 / 50</span>
+          </div>
+          <div class="progress-bar-wrap" style="height: 10px;">
+            <div class="progress-bar-fill green" id="treeExpBar" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="farm-actions" style="margin-top: 14px;">
+        <button class="farm-btn farm-btn-water" onclick="waterTree()">
+          <div>💧 澆水</div>
+          <span style="font-size: 0.75rem; opacity: 0.8;">消耗 1 水滴 (+10 EXP)</span>
+        </button>
+        <button class="farm-btn farm-btn-fertilizer" onclick="fertilizeTree()">
+          <div>🧪 施肥</div>
+          <span style="font-size: 0.75rem; opacity: 0.8;">消耗 1 肥料 (+30 EXP)</span>
+        </button>
+      </div>
+
+      <div class="stat-card" style="margin-top: 14px; width: 100%;">
+        <div class="title" id="farmHarvestCount" style="color: var(--accent-green);">🌳 0 棵</div>
+        <div class="subtitle">累計培育完成的森林樹木</div>
+      </div>
+    </div>
+
+    <!-- 2. 等級選擇 (單字卡) -->
+    <div id="pageLevelCategory" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="showPage('pageLobby')">‹</button>
+        <div class="bar-title">選擇單字範圍 (Level)</div>
+        <div style="width: 24px;"></div>
+      </div>
+      <div class="grid-container" id="levelGrid"></div>
+    </div>
+
+    <!-- 2.1 等級選擇 (單元制刷題) -->
+    <div id="pageUnitQuizLevel" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="showPage('pageLobby')">‹</button>
+        <div class="bar-title">刷題題庫 - 選擇 Level</div>
+        <div style="width: 24px;"></div>
+      </div>
+      <div class="grid-container" id="unitQuizLevelGrid"></div>
+    </div>
+
+    <!-- 3. 單元選擇 (單字卡) -->
+    <div id="pageUnitList" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="openLevelCategory()">‹</button>
+        <div class="bar-title" id="unitListTitle">Level 選擇</div>
+        <div style="width: 24px;"></div>
+      </div>
+      <div class="grid-container" id="unitGrid"></div>
+    </div>
+
+    <!-- 3.1 單元選擇 (單元制刷題) -->
+    <div id="pageUnitQuizUnit" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="openUnitQuizLevelCategory()">‹</button>
+        <div class="bar-title" id="unitQuizUnitTitle">刷題題庫 - 選擇 Unit</div>
+        <div style="width: 24px;"></div>
+      </div>
+      <div class="grid-container" id="unitQuizUnitGrid"></div>
+    </div>
+
+    <!-- 3.2 模式選擇 (單元制刷題) -->
+    <div id="pageUnitQuizMode" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="openUnitQuizUnitList(unitQuizLevel)">‹</button>
+        <div class="bar-title" id="unitQuizModeTitle">選擇刷題模式</div>
+        <div style="width: 24px;"></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 10px;">
+        <div id="btnModeZhToEn" class="menu-card" onclick="startUnitQuiz('zh2en')">
+          <div style="font-size: 1.8rem;">🔤</div>
+          <div>
+            <h2 class="title" style="font-size: 1.1rem;">看中文選英文</h2>
+            <p class="subtitle" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">顯示中文釋義，挑選正確英文單字</p>
+          </div>
+        </div>
+
+        <div id="btnModeEnToZh" class="menu-card" onclick="startUnitQuiz('en2zh')">
+          <div style="font-size: 1.8rem;">🔠</div>
+          <div>
+            <h2 class="title" style="font-size: 1.1rem;">看英文選中文</h2>
+            <p class="subtitle" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">顯示英文單字，挑選正確中文釋義</p>
+          </div>
+        </div>
+
+        <div id="btnModeMixed" class="menu-card" onclick="startUnitQuiz('mixed')">
+          <div style="font-size: 1.8rem;">⚡</div>
+          <div>
+            <h2 class="title" style="font-size: 1.1rem;">綜合模式</h2>
+            <p class="subtitle" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">看中文選英文 + 看英文選中文</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 單字清單 -->
+    <div id="pageWordList" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="openUnitList(currentLevel)">‹</button>
+        <div class="bar-title" id="wordListTitle">Unit 單字列表</div>
+        <div style="width: 24px;"></div>
+      </div>
+      <div class="word-list" id="wordListContainer"></div>
+    </div>
+
+    <!-- 5. 單字卡片頁面 -->
+    <div id="pageCardDetail" class="page">
+      <div class="card-header">
+        <button class="back-btn" onclick="openWordList(currentUnit)">‹</button>
+        <div>
+          <div class="card-progress" id="cardProgress">1/50</div>
+          <div class="card-unit-name" id="cardUnitName">7000單字 Level 1 - Unit 1</div>
+        </div>
+        <button id="cardStarBtn" class="star-btn" onclick="toggleCardDetailStar()">★</button>
+      </div>
+
+      <div class="card-body">
+        <div class="card-word-title" id="cardWord"></div>
+        <div class="card-phonetic">
+          <span id="cardPhonetic"></span>
+          <button class="audio-icon" onclick="speakCurrentWord()">🔊</button>
+        </div>
+        <div class="card-meaning" id="cardMeaning"></div>
+
+        <div class="rel-section">
+          <div class="rel-row">
+            <span class="tag-blue">搭配</span>
+            <span class="rel-text" id="cardCollocation"></span>
+          </div>
+          <div class="rel-row">
+            <span class="tag-orange">相似</span>
+            <span class="rel-text" id="cardSynonym"></span>
+          </div>
+        </div>
+
+        <div class="example-block" id="cardExamples"></div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-top: auto; margin-bottom: 4px;">
+        <button id="btnDontKnow" onclick="setFamiliarityCurrent('dont_know')" style="flex: 1; padding: 12px; border-radius: 12px; background: #3a1c1c; border: 1px solid #ef4444; color: #ef4444; font-weight: bold; font-size: 0.95rem; cursor: pointer;">我不會</button>
+        <button id="btnKnow" onclick="setFamiliarityCurrent('know')" style="flex: 1; padding: 12px; border-radius: 12px; background: #1c3a2b; border: 1px solid #10b981; color: #10b981; font-weight: bold; font-size: 0.95rem; cursor: pointer;">我很熟</button>
+      </div>
+
+      <div class="card-nav">
+        <button class="card-nav-btn" onclick="prevCard()">◄ 上一個</button>
+        <button class="card-nav-btn" onclick="nextCard()">下一個 ►</button>
+      </div>
+    </div>
+
+    <!-- 6. 數字鍵盤設定題數頁面 (Pin Style) -->
+    <div id="pageQuizPin" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="showPage('pageLobby')">‹</button>
+        <div class="bar-title">設定測驗題數</div>
+        <div style="width: 24px;"></div>
+      </div>
+
+      <div class="pin-container">
+        <div class="pin-display-box">
+          <div class="pin-display-title">請輸入預計測驗題數</div>
+          <div class="pin-display-val" id="pinValue">10</div>
+        </div>
+
+        <div class="keypad-grid">
+          <button class="keypad-btn" onclick="appendPin('1')">1</button>
+          <button class="keypad-btn" onclick="appendPin('2')">2</button>
+          <button class="keypad-btn" onclick="appendPin('3')">3</button>
+          <button class="keypad-btn" onclick="appendPin('4')">4</button>
+          <button class="keypad-btn" onclick="appendPin('5')">5</button>
+          <button class="keypad-btn" onclick="appendPin('6')">6</button>
+          <button class="keypad-btn" onclick="appendPin('7')">7</button>
+          <button class="keypad-btn" onclick="appendPin('8')">8</button>
+          <button class="keypad-btn" onclick="appendPin('9')">9</button>
+          <button class="keypad-btn action-btn" onclick="deletePin()">⌫</button>
+          <button class="keypad-btn" onclick="appendPin('0')">0</button>
+          <button class="keypad-btn confirm-btn" onclick="startQuizByPin()">✓</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. 答題頁面 -->
+    <!-- 7. 答題頁面（整合雙模式切換） -->
+    <div id="pageQuiz" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="confirmExitQuiz()">‹</button>
+        <div class="bar-title" id="quizProgressTitle">題目 1/10</div>
+        <button id="quizStarBtn" class="star-btn" onclick="toggleCurrentQuizWordStar()">★</button>
+      </div>
+    
+      <!-- 模式切換頁籤 -->
+      <div class="mode-tab-container">
+        <button id="tabModeWord" class="mode-tab-btn active" onclick="switchQuizTab('word')">🔤 單字測驗</button>
+        <button id="tabModeExam" class="mode-tab-btn" onclick="switchQuizTab('exam')">🏛️ 歷屆真題特訓</button>
+      </div>
+    
+      <!-- 題目卡片區 -->
+      <div class="quiz-card">
+        <div id="quizSourceTag" style="font-size: 0.85rem; color: var(--accent-yellow); font-weight: bold; margin-bottom: 8px; display: none;"></div>
+        <div class="quiz-word" id="quizWord">word</div>
+        <div class="card-phonetic" id="quizPhoneticWrap" style="justify-content: center; margin-bottom: 0;">
+          <span id="quizPhonetic">[ word ]</span>
+          <button class="audio-icon" id="quizAudioBtn" onclick="speakText(currentQuizTarget.word)">🔊</button>
+        </div>
+      </div>
+    
+      <!-- 選項容器 -->
+      <div class="quiz-options" id="quizOptionsContainer"></div>
+    
+      <!-- 歷屆考題專屬中文翻譯區（預設隱藏，答題完畢後加入 class "show" 顯示） -->
+      <div id="pastExamTransBox" class="exam-trans-box">
+        <div class="exam-trans-title">💡 題目全句翻譯與解析</div>
+        <div class="exam-trans-text" id="pastExamTransText">答題後此處將顯示題目翻譯與重點解析。</div>
+      </div>
+    </div>
+
+    <!-- 8. 錯題單字卡頁面 -->
+    <div id="pageWrongReviewCard" class="page">
+      <div class="card-header">
+        <button class="back-btn" onclick="exitWrongReview()">‹</button>
+        <div>
+          <div class="card-progress" id="wrongProgress">1/5</div>
+          <div class="card-unit-name">測驗錯題複習</div>
+        </div>
+        <button id="wrongStarBtn" class="star-btn" onclick="toggleWrongWordStar()">★</button>
+      </div>
+
+      <div class="card-body">
+        <div class="card-word-title" id="wCardWord"></div>
+        <div class="card-phonetic">
+          <span id="wCardPhonetic"></span>
+          <button class="audio-icon" onclick="speakText(quizWrongList[wrongReviewIndex]?.word)">🔊</button>
+        </div>
+        <div class="card-meaning" id="wCardMeaning"></div>
+
+        <div class="rel-section">
+          <div class="rel-row">
+            <span class="tag-blue">搭配</span>
+            <span class="rel-text" id="wCardCollocation"></span>
+          </div>
+          <div class="rel-row">
+            <span class="tag-orange">相似</span>
+            <span class="rel-text" id="wCardSynonym"></span>
+          </div>
+        </div>
+
+        <div class="example-block" id="wCardExamples"></div>
+      </div>
+
+      <div class="card-nav">
+        <button class="card-nav-btn" onclick="prevWrongCard()">◄ 上一個</button>
+        <button class="card-nav-btn" onclick="nextWrongCard()">下一個 ►</button>
+      </div>
+    </div>
+
+    <!-- 9. 智能錯題與收藏本主頁 -->
+    <div id="pageWrongBookLobby" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="showPage('pageLobby')">‹</button>
+        <div class="bar-title">智能錯題與收藏本</div>
+        <div style="width: 24px;"></div>
+      </div>
+
+      <div class="grid-container" style="margin-top: 8px; margin-bottom: 12px;">
+        <div class="stat-card">
+          <div class="title" id="statWrongCount">0</div>
+          <div class="subtitle">答錯單字庫</div>
+        </div>
+        <div class="stat-card">
+          <div class="title" id="statStarCount">0</div>
+          <div class="subtitle">星號標記單字</div>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="startWrongBookQuiz('wrong')">
+        <div style="font-size: 1.8rem;">❌</div>
+        <div>
+          <h2 style="font-size: 1.1rem;">錯題專屬特訓</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">針對答錯單字測驗（答對自動消除）</p>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="startWrongBookQuiz('star')">
+        <div style="font-size: 1.8rem;">⭐</div>
+        <div>
+          <h2 style="font-size: 1.1rem;">星號標記特訓</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">針對標記星號的重點單字特訓</p>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="startWrongBookQuiz('all')">
+        <div style="font-size: 1.8rem;">🔥</div>
+        <div>
+          <h2 style="font-size: 1.1rem;">綜合強化特訓</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">結合答錯與星號單字全面複習</p>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="openWrongListBrowser()">
+        <div style="font-size: 1.8rem;">📖</div>
+        <div>
+          <h2 style="font-size: 1.1rem;">瀏覽錯題與星號清單</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">直接檢視單字列表與資料卡</p>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: auto; padding-top: 16px;">
+        <button class="modal-btn secondary-btn" style="border-color: #ef4444; color: #ef4444; font-size: 0.85rem;" onclick="clearWrongWordsUI()">清空答錯紀錄</button>
+        <button class="modal-btn secondary-btn" style="border-color: #f59e0b; color: #f59e0b; font-size: 0.85rem;" onclick="clearStarredWordsUI()">清空星號收藏</button>
+      </div>
+    </div>
+
+    <!-- 10. 錯題與星號清單瀏覽器 -->
+    <div id="pageWrongListBrowser" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="openWrongBookLobby()">‹</button>
+        <div class="bar-title">單字清單瀏覽</div>
+        <div style="width: 24px;"></div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+        <button id="tabWrongBtn" class="modal-btn" style="flex:1; padding: 10px; margin: 0; font-size: 0.9rem;" onclick="switchBrowserTab('wrong')">答錯單字</button>
+        <button id="tabStarBtn" class="modal-btn secondary-btn" style="flex:1; padding: 10px; margin: 0; font-size: 0.9rem;" onclick="switchBrowserTab('star')">星號標記</button>
+      </div>
+
+      <div class="word-list" id="wrongBrowserListContainer"></div>
+    </div>
+
+    <!-- 11. 學習整理 (熟練度清單瀏覽器) -->
+    <div id="pageFamiliarityBrowser" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="showPage('pageLobby')">‹</button>
+        <div class="bar-title">學習整理與熟悉度</div>
+        <div style="width: 24px;"></div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+        <button id="tabKnowBtn" class="modal-btn" style="flex:1; padding: 10px; margin: 0; font-size: 0.9rem;" onclick="switchFamTab('know')">我很熟</button>
+        <button id="tabDontKnowBtn" class="modal-btn secondary-btn" style="flex:1; padding: 10px; margin: 0; font-size: 0.9rem;" onclick="switchFamTab('dont_know')">我不會</button>
+      </div>
+
+      <div class="word-list" id="famBrowserListContainer"></div>
+    </div>
+    <!-- 13. 副本冒險地下城大廳 -->
+    <div id="pageBattleDungeonLobby" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="showPage('pageLobby')">‹</button>
+        <div class="bar-title">⚔️ 副本冒險地下城</div>
+        <div style="width: 24px;"></div>
+      </div>
+
+      <div class="menu-card" onclick="startBossBattle()">
+        <div style="font-size: 2rem;">👹</div>
+        <div>
+          <h2 style="font-size: 1.1rem;">Time Attack BOSS 討伐戰</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">60秒限時戰！連續答對觸發 Combo 暴擊，贏取大量水滴</p>
+        </div>
+      </div>
+
+      <div class="menu-card" onclick="startSpellingDungeon()">
+        <div style="font-size: 2rem;">🔤</div>
+        <div>
+          <h2 style="font-size: 1.1rem;">字母拼字地下城</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">亂序字母拼盤，挑戰單字拼寫能力</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 14. BOSS 討伐戰頁面 -->
+    <div id="pageBossBattle" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="confirmExitBoss()">‹</button>
+        <div class="bar-title">👹 BOSS 討伐戰</div>
+        <div style="width: 24px;"></div>
+      </div>
+
+      <div class="boss-card">
+        <div style="font-size: 0.8rem; color: var(--accent-red); font-weight: bold;">STAGE BOSS</div>
+        <div class="boss-avatar">🐉</div>
+        <div style="font-size: 1.1rem; font-weight: bold; color: #fff; margin-bottom: 6px;">詞彙巨龍·巴哈姆特</div>
+        
+        <div class="grid-progress-container">
+          <div class="progress-label">
+            <span>BOSS HP</span>
+            <span id="bossHpText">1000 / 1000</span>
+          </div>
+          <div class="progress-bar-wrap" style="height: 10px;">
+            <div class="progress-bar-fill" id="bossHpBar" style="width: 100%; background-color: var(--accent-red);"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-row">
+        <span style="color: var(--accent-green);" id="playerHpText">❤️ 玩家 HP: 100/100</span>
+        <span class="combo-badge" id="bossComboBadge">🔥 Combo x0</span>
+        <span style="color: var(--accent-yellow);" id="bossTimerText">⏱️ 60 秒</span>
+      </div>
+
+      <div class="quiz-card" style="margin-top: 4px;">
+        <div class="quiz-word" id="bossQuizWord">word</div>
+      </div>
+
+      <div class="quiz-options" id="bossQuizOptions"></div>
+    </div>
+
+    <!-- 15. 字母拼字地下城頁面 -->
+    <div id="pageSpellingDungeon" class="page">
+      <div class="top-bar">
+        <button class="back-btn" onclick="confirmExitSpelling()">‹</button>
+        <div class="bar-title">🔤 字母拼字地下城</div>
+        <div style="width: 24px;"></div>
+      </div>
+
+      <div class="status-row">
+        <span style="color: var(--accent-yellow);" id="spellingProgressText">關卡 1/10</span>
+        <span style="color: var(--accent-green);" id="spellingScoreText">💧 累計獎勵: +0</span>
+      </div>
+
+      <div class="spelling-board">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="font-size: 1.1rem; font-weight: bold; color: #fff;" id="spellingMeaning">中文釋義</div>
+          <button class="audio-icon" onclick="speakCurrentSpellingWord()">🔊</button>
+        </div>
+        
+        <div class="spelling-slots" id="spellingSlots"></div>
+        <div class="spelling-pool" id="spellingPool"></div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-top: auto; padding-bottom: 8px;">
+        <button class="modal-btn secondary-btn" style="flex:1;" onclick="clearSpellingSlots()">重置字母</button>
+        <button class="modal-btn" style="flex:1;" onclick="submitSpellingAnswer()">送出答案</button>
+      </div>
+    </div>
+
+    <!-- 固定底部導覽列 -->
+    <nav id="mainBottomNav" class="bottom-nav">
+      <button id="navMainBtn" class="nav-btn active" onclick="switchMainTab('main')">🏠 主畫面</button>
+      <button id="navFarmBtn" class="nav-btn" onclick="switchMainTab('farm')">🌲 植樹場</button>
+    </nav>
+
+  </div>
+
+  <div class="modal-overlay" id="instantFeedbackModal" onclick="skipInstantFeedback()">
+    <div class="modal-card" style="text-align: center;" onclick="event.stopPropagation()">
+      <div id="instantFeedbackBanner" style="font-size: 1.8rem; font-weight: bold; margin-bottom: 12px;"></div>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">即時答題統計</p>
+
+      <div style="display: flex; justify-content: center; margin-bottom: 12px;">
+        <canvas id="instantPieChartCanvas" width="140" height="140"></canvas>
+      </div>
+
+      <div style="font-size: 1.1rem; color: #fff; font-weight: bold; margin-bottom: 8px;" id="instantAccuracyText"></div>
+      <div style="font-size: 0.85rem; color: var(--text-secondary);" id="instantDetailText"></div>
+      <p style="font-size: 0.75rem; color: var(--accent-yellow); margin-top: 14px;">稍後將自動開啟單字卡...</p>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="wordDetailModal">
+    <div class="modal-card">
+      <div class="card-word-title" id="mWord"></div>
+      <div class="card-phonetic">
+        <span id="mPhonetic"></span>
+        <button class="audio-icon" id="mAudioBtn">🔊</button>
+      </div>
+      <div class="card-meaning" id="mMeaning"></div>
+
+      <div class="rel-section">
+        <div class="rel-row">
+          <span class="tag-blue">搭配</span>
+          <span class="rel-text" id="mCollocation"></span>
+        </div>
+        <div class="rel-row">
+          <span class="tag-orange">相似</span>
+          <span class="rel-text" id="mSynonym"></span>
+        </div>
+      </div>
+
+      <div class="example-block" id="mExamples"></div>
+      <button class="modal-btn" onclick="closeWordDetailModal()">下一題 ►</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="quizResultModal">
+    <div class="modal-card" style="text-align: center;">
+      <h2 style="font-size: 1.5rem; color: var(--accent-yellow); margin-bottom: 8px;">🎉 測驗完成！</h2>
+      <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px;">以下是本次測驗答題統計</p>
+
+      <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+        <canvas id="pieChartCanvas" width="160" height="160"></canvas>
+      </div>
+
+      <div style="font-size: 1.1rem; color: #fff; font-weight: bold; margin-bottom: 12px;" id="resultAccuracyText"></div>
+      <div style="font-size: 0.9rem; color: var(--text-secondary);" id="resultDetailText"></div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">
+        <button class="modal-btn secondary-btn" id="reviewWrongBtn" onclick="startWrongWordsReview()">查看錯題卡片</button>
+        <button class="modal-btn" onclick="finishQuizAndReturn()">退出並返回主選單</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="custom-confirm-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <p id="confirm-message">確定要放棄本次測驗並返回嗎？</p>
+      <div class="modal-actions">
+        <button id="confirm-cancel-btn" class="btn btn-secondary">取消</button>
+        <button id="confirm-ok-btn" class="btn btn-primary">確定</button>
+      </div>
+    </div>
+  </div>
+  <!-- 自訂遊戲彈窗 -->
+  <div id="gameModal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box">
+      <div id="gameModalText" class="custom-modal-text"></div>
+      <button id="gameModalBtn" class="custom-modal-btn" onclick="closeGameModal()">確定</button>
+    </div>
+  </div>
+  <script src="data/exam_questions.js"></script>
+  <script src="data/level1.js"></script>
+  <script src="data/level2.js"></script>
+  <script src="data/level3.js"></script>
+  <script src="data/level4.js"></script>
+  <script src="data/level5.js"></script>
+  <script src="data/level6.js"></script>
+  <script src="data/level7.js"></script>
+
+<script>
+  const LEVEL_NAMES = {
+    1: "Level 1 - 初級基礎單字",
+    2: "Level 2 - 初中級基礎單字",
+    3: "Level 3 - 學測中級核心單字",
+    4: "Level 4 - 學測中級高頻單字",
+    5: "Level 5 - 學測中高級核心單字",
+    6: "Level 6 - 學測中高級高頻單字",
+    7: "Level 7 - 學測高級核心單字"
+  };
+
+  /* 植樹場系統 LocalStorage 資料操作 */
+  function getFarmData() {
+    try {
+      return JSON.parse(localStorage.getItem('farm_data')) || { water: 10, fertilizer: 2, exp: 0, level: 1, harvested: 0 };
+    } catch(e) {
+      return { water: 10, fertilizer: 2, exp: 0, level: 1, harvested: 0 };
+    }
+  }
+
+  function saveFarmData(data) {
+    localStorage.setItem('farm_data', JSON.stringify(data));
+  }
+
+  function addFarmResource(waterCount, fertilizerCount) {
+    let data = getFarmData();
+    data.water = (data.water || 0) + waterCount;
+    data.fertilizer = (data.fertilizer || 0) + fertilizerCount;
+    saveFarmData(data);
+  }
+
+  const TREE_STAGES = [
+    { name: "階段 1/5：種子發芽", title: "知識幼苗", emoji: "🌱", maxExp: 50 },
+    { name: "階段 2/5：持續灌溉", title: "茁壯嫩芽", emoji: "🌿", maxExp: 120 },
+    { name: "階段 3/5：穩固根基", title: "小樹苗", emoji: "🪴", maxExp: 220 },
+    { name: "階段 4/5：茂盛生長", title: "參天大樹", emoji: "🌳", maxExp: 350 },
+    { name: "階段 5/5：結實果樹", title: "豐收果樹", emoji: "🍎", maxExp: 500 }
+  ];
+
+  function updateFarmUI() {
+    const data = getFarmData();
+    const currentStage = TREE_STAGES[Math.min(data.level - 1, TREE_STAGES.length - 1)];
+
+    const waterEl = document.getElementById('farmWaterCount');
+    const fertEl = document.getElementById('farmFertilizerCount');
+    const stageNameEl = document.getElementById('treeStageName');
+    const emojiEl = document.getElementById('treeEmoji');
+    const titleEl = document.getElementById('treeTitle');
+    const expTextEl = document.getElementById('treeExpText');
+    const expBarEl = document.getElementById('treeExpBar');
+    const harvestEl = document.getElementById('farmHarvestCount');
+
+    if (waterEl) waterEl.innerText = `💧 ${data.water}`;
+    if (fertEl) fertEl.innerText = `🧪 ${data.fertilizer}`;
+    if (stageNameEl) stageNameEl.innerText = currentStage.name;
+    if (emojiEl) emojiEl.innerText = currentStage.emoji;
+    if (titleEl) titleEl.innerText = currentStage.title;
+
+    const percent = Math.min(100, Math.round((data.exp / currentStage.maxExp) * 100));
+    if (expTextEl) expTextEl.innerText = `${data.exp} / ${currentStage.maxExp}`;
+    if (expBarEl) expBarEl.style.width = `${percent}%`;
+    if (harvestEl) harvestEl.innerText = `🌳 ${data.harvested} 棵`;
+  }
+
+  function waterTree() {
+    let data = getFarmData();
+    if (data.water <= 0) {
+      alert("水滴不足！去多背單字或刷題答對題目即可獲取水滴喔！");
+      return;
+    }
+    data.water -= 1;
+    data.exp += 10;
+    checkTreeLevelUp(data);
+    saveFarmData(data);
+    updateFarmUI();
+  }
+
+  function fertilizeTree() {
+    let data = getFarmData();
+    if (data.fertilizer <= 0) {
+      alert("肥料不足！每日連續登入即可領取更多肥料！");
+      return;
+    }
+    data.fertilizer -= 1;
+    data.exp += 30;
+    checkTreeLevelUp(data);
+    saveFarmData(data);
+    updateFarmUI();
+  }
+
+  function checkTreeLevelUp(data) {
+    const currentStage = TREE_STAGES[Math.min(data.level - 1, TREE_STAGES.length - 1)];
+    if (data.exp >= currentStage.maxExp) {
+      if (data.level < TREE_STAGES.length) {
+        data.level += 1;
+        data.exp = 0;
+        alert(`🎉 恭喜！你的小樹升級成「${TREE_STAGES[data.level - 1].title}」了！`);
+      } else {
+        data.harvested += 1;
+        data.level = 1;
+        data.exp = 0;
+        data.water += 5;
+        alert("🎉 太棒了！樹木培育完成了！已收入你的森林庫，並獲得額外獎勵 5 滴水！");
+      }
+    }
+  }
+
+  /* LocalStorage 連續登入與進度維護功能 */
+  function checkAndUpdateLoginStreak() {
+    const today = new Date().toLocaleDateString('en-CA');
+    const lastLogin = localStorage.getItem('last_login_date');
+    let streak = parseInt(localStorage.getItem('login_streak') || '0', 10);
+
+    if (!lastLogin) {
+      streak = 1;
+      addFarmResource(5, 1);
+    } else if (lastLogin !== today) {
+      const lastDate = new Date(lastLogin);
+      const todayDate = new Date(today);
+      const diffDays = Math.round((todayDate - lastDate) / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) {
+        streak += 1;
+        addFarmResource(5, 1);
+      } else if (diffDays > 1) {
+        streak = 1;
+        addFarmResource(5, 1);
+      }
+    }
+
+    localStorage.setItem('last_login_date', today);
+    localStorage.setItem('login_streak', streak);
+    return streak;
+  }
+
+  function updateLobbyStats() {
+    const streak = checkAndUpdateLoginStreak();
+    const famMap = getFamiliarityMap();
+    const masteredCount = Object.values(famMap).filter(val => val === 'know').length;
+
+    const streakEl = document.getElementById('streakDays');
+    const masteredEl = document.getElementById('masteredCount');
+
+    if (streakEl) streakEl.innerText = `🔥 ${streak} 天`;
+    if (masteredEl) masteredEl.innerText = `✅ ${masteredCount} 字`;
+  }
+
+  function getLevelData(levelNum) {
+    const possibleNames = [`level${levelNum}data`, `level${levelNum}Data`, `level${levelNum}_data`, `level${levelNum}`];
+    for (const name of possibleNames) {
+      if (window[name] && typeof window[name] === 'object') return window[name];
+      try {
+        const val = eval(name);
+        if (val && typeof val === 'object') return val;
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  function getUnitWords(levelNum, unitNum) {
+    const levelData = getLevelData(levelNum);
+    if (!levelData) return [];
+    if (Array.isArray(levelData)) {
+      return levelData.filter(item => Number(item.unit) === Number(unitNum));
+    }
+    return levelData[unitNum] || levelData[String(unitNum)] || [];
+  }
+
+  function getAllAvailableWords() {
+    let all = [];
+    for (let l = 1; l <= 7; l++) {
+      const lData = getLevelData(l);
+      if (!lData) continue;
+      if (Array.isArray(lData)) {
+        all = all.concat(lData);
+      } else {
+        Object.values(lData).forEach(uArr => {
+          if (Array.isArray(uArr)) all = all.concat(uArr);
+        });
+      }
+    }
+    return all;
+  }
+
+  function getStarredWords() {
+    try { return JSON.parse(localStorage.getItem('starred_words')) || []; }
+    catch(e) { return []; }
+  }
+
+  function saveStarredWords(arr) {
+    localStorage.setItem('starred_words', JSON.stringify(arr));
+  }
+
+  function isWordStarred(wordObj) {
+    if (!wordObj) return false;
+    const list = getStarredWords();
+    return list.some(item => item.word === wordObj.word);
+  }
+
+  function getWrongWordsLS() {
+    try { return JSON.parse(localStorage.getItem('wrong_words')) || []; }
+    catch(e) { return []; }
+  }
+
+  function saveWrongWordsLS(arr) {
+    localStorage.setItem('wrong_words', JSON.stringify(arr));
+  }
+
+  function addWrongWordLS(wordObj) {
+    if (!wordObj || !wordObj.word) return;
+    let list = getWrongWordsLS();
+    if (!list.some(item => item.word === wordObj.word)) {
+      list.push(wordObj);
+      saveWrongWordsLS(list);
+    }
+  }
+
+  function removeWrongWordLS(wordStr) {
+    let list = getWrongWordsLS();
+    list = list.filter(item => item.word !== wordStr);
+    saveWrongWordsLS(list);
+  }
+
+  function getLearnedWords() {
+    try { return JSON.parse(localStorage.getItem('learned_words')) || []; }
+    catch(e) { return []; }
+  }
+
+  function markWordAsLearned(wordStr) {
+    if (!wordStr) return;
+    let list = getLearnedWords();
+    if (!list.includes(wordStr)) {
+      list.push(wordStr);
+      localStorage.setItem('learned_words', JSON.stringify(list));
+      updateLobbyStats();
+    }
+  }
+
+  function getFamiliarityMap() {
+    try { return JSON.parse(localStorage.getItem('familiarity_map')) || {}; }
+    catch(e) { return {}; }
+  }
+
+  function setWordFamiliarity(wordStr, status) {
+    if (!wordStr) return;
+    let map = getFamiliarityMap();
+    if (status === null) {
+      delete map[wordStr];
+    } else {
+      map[wordStr] = status;
+    }
+    localStorage.setItem('familiarity_map', JSON.stringify(map));
+    updateLobbyStats();
+  }
+
+  function getWordFamiliarity(wordStr) {
+    let map = getFamiliarityMap();
+    return map[wordStr] || null;
+  }
+
+  let currentLevel = 1;
+  let currentUnit = 1;
+  let currentWords = [];
+  let currentCardIndex = 0;
+
+  let unitQuizLevel = 1;
+  let unitQuizUnit = 1;
+
+  let pinString = "10";
+  let quizQueue = [];
+  let currentQuizIndex = 0;
+  let currentQuizTarget = null;
+  let currentQuizMode = 'en2zh';
+  let quizCorrectCount = 0;
+  let quizWrongCount = 0;
+  let quizWrongList = []; 
+  let wrongReviewIndex = 0;
+  let feedbackTimer = null;
+  let isWrongQuizMode = false;
+
+  let currentBrowserTab = 'wrong';
+  let currentFamTab = 'know';
+
+  /* 頁面切換與底部導覽列邏輯 */
+  function showPage(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const target = document.getElementById(pageId);
+    if (target) target.classList.add('active');
+
+    // 僅在大廳與植樹場顯示底部選單，其餘完全隱藏避免蓋住按鈕
+    const bottomNav = document.getElementById('mainBottomNav');
+    const mainBtn = document.getElementById('navMainBtn');
+    const farmBtn = document.getElementById('navFarmBtn');
+
+    if (bottomNav) {
+      if (pageId === 'pageLobby' || pageId === 'pageTreeFarm') {
+        bottomNav.style.display = 'flex';
+        if (mainBtn && farmBtn) {
+          if (pageId === 'pageLobby') {
+            mainBtn.classList.add('active');
+            farmBtn.classList.remove('active');
+          } else {
+            farmBtn.classList.add('active');
+            mainBtn.classList.remove('active');
+          }
+        }
+      } else {
+        bottomNav.style.display = 'none';
+      }
+    }
+
+    if (pageId === 'pageLobby') updateLobbyStats();
+    if (pageId === 'pageTreeFarm') updateFarmUI();
+  }
+
+  function switchMainTab(tab) {
+    if (tab === 'main') {
+      showPage('pageLobby');
+    } else if (tab === 'farm') {
+      showPage('pageTreeFarm');
+    }
+  }
+
+  function openLevelCategory() {
+    showPage('pageLevelCategory');
+    const grid = document.getElementById('levelGrid');
+    grid.innerHTML = '';
+    
+    const learnedSet = new Set(getLearnedWords());
+    const famMap = getFamiliarityMap();
+
+    for (let i = 1; i <= 7; i++) {
+      let levelWords = [];
+      const lData = getLevelData(i);
+      if (lData) {
+        if (Array.isArray(lData)) levelWords = lData;
+        else Object.values(lData).forEach(uArr => { if (Array.isArray(uArr)) levelWords = levelWords.concat(uArr); });
+      }
+
+      const totalCount = levelWords.length || 1000;
+      const learnedCount = levelWords.filter(w => learnedSet.has(w.word)).length;
+      const knowCount = levelWords.filter(w => famMap[w.word] === 'know').length;
+
+      const learnPercent = Math.min(100, Math.round((learnedCount / totalCount) * 100));
+      const famPercent = Math.min(100, Math.round((knowCount / totalCount) * 100));
+
+      const item = document.createElement('div');
+      item.className = 'grid-item';
+      item.onclick = () => openUnitList(i);
+      item.innerHTML = `
+        <div>
+          <div class="title">${LEVEL_NAMES[i]}</div>
+          <div class="subtitle">${(i - 1) * 1000 + 1} - ${i * 1000} 字</div>
+        </div>
+        <div class="grid-progress-container">
+          <div>
+            <div class="progress-label"><span>瀏覽進度</span><span>${learnPercent}%</span></div>
+            <div class="progress-bar-wrap"><div class="progress-bar-fill white" style="width: ${learnPercent}%;"></div></div>
+          </div>
+          <div>
+            <div class="progress-label"><span>熟悉度</span><span>${famPercent}%</span></div>
+            <div class="progress-bar-wrap"><div class="progress-bar-fill green" style="width: ${famPercent}%;"></div></div>
+          </div>
+        </div>
+      `;
+      grid.appendChild(item);
+    }
+  }
+
+  function openUnitQuizLevelCategory() {
+    showPage('pageUnitQuizLevel');
+    const grid = document.getElementById('unitQuizLevelGrid');
+    grid.innerHTML = '';
+  
+    const totalUnits = 20; // 每個 Level 包含的單元總數
+  
+    for (let i = 1; i <= 7; i++) {
+      let completedCount = 0;
+      const startUnit = (i - 1) * 20 + 1;
+      const endUnit = i * 20;
+  
+      for (let u = startUnit; u <= endUnit; u++) {
+        const record = getUnitQuizRecord(i, u);
+        if (record && record.completed) {
+          completedCount++;
+        }
+      }
+      
+      const quizPercent = Math.round((completedCount / totalUnits) * 100);
+  
+      const item = document.createElement('div');
+      item.className = 'grid-item';
+      item.onclick = () => openUnitQuizUnitList(i);
+      item.innerHTML = `
+        <div>
+          <div class="title">${LEVEL_NAMES[i]}</div>
+          <div class="subtitle">${(i - 1) * 1000 + 1} - ${i * 1000} 字</div>
+        </div>
+        <div class="grid-progress-container">
+          <div>
+            <div class="progress-label">
+              <span>刷題進度 (${completedCount}/${totalUnits})</span>
+              <span>${quizPercent}%</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-fill green" style="width: ${quizPercent}%;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      grid.appendChild(item);
+    }
+  }
+
+  function openUnitQuizUnitList(level) {
+    unitQuizLevel = level;
+    showPage('pageUnitQuizUnit');
+  
+    const titleEl = document.getElementById('unitQuizUnitTitle');
+    if (titleEl) titleEl.innerText = `Level ${level} - 選擇單元`;
+  
+    const container = document.getElementById('unitQuizUnitGrid');
+    if (!container) return;
+  
+    container.innerHTML = '';
+  
+    // 計算該 Level 的全域單元範圍
+    const startUnit = (level - 1) * 20 + 1;
+    const endUnit = level * 20;
+  
+    for (let u = startUnit; u <= endUnit; u++) {
+      const record = getUnitQuizRecord(level, u);
+      const words = getUnitWords(level, u);
+      const wordCount = words ? words.length : 0;
+  
+      let statusHTML = '';
+      if (record && record.completed) {
+        statusHTML = `
+          <div style="color: var(--accent-green); font-weight: bold; font-size: 0.85rem; margin-top: 8px;">✓ 已完成</div>
+          <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 2px;">正確率 <span style="color: var(--accent-yellow); font-weight: bold;">${record.accuracy}%</span></div>
+        `;
+      } else {
+        statusHTML = `
+          <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 8px; opacity: 0.7;">✕ 未完成</div>
+        `;
+      }
+  
+      const card = document.createElement('div');
+      card.className = 'grid-item';
+      card.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 16px; text-align: center; cursor: pointer;';
+      card.onclick = () => openUnitQuizModeSelect(level, u);
+      card.innerHTML = `
+        <div>
+          <h2 style="font-size: 1.2rem; color: var(--accent-yellow); font-weight: bold; margin-bottom: 2px;">Unit ${u}</h2>
+          <div style="font-size: 0.8rem; color: var(--text-secondary);">${wordCount} 個單字</div>
+        </div>
+        ${statusHTML}
+      `;
+      container.appendChild(card);
+    }
+  }
+
+  // 開啟單元刷題模式選擇頁面時，動態設定點擊事件與題目數量標示
+  function openUnitQuizModeSelect(level, unit) {
+    unitQuizLevel = level;
+    unitQuizUnit = unit;
+    
+    const words = getUnitWords(level, unit);
+    const totalCount = words.length;
+    const halfCount = Math.ceil(totalCount / 2);
+  
+    showPage('pageUnitQuizMode');
+    document.getElementById('unitQuizModeTitle').innerText = `Unit ${unit} 刷題模式`;
+  
+    const btnZhToEn = document.getElementById('btnModeZhToEn');
+    const btnEnToZh = document.getElementById('btnModeEnToZh');
+    const btnMixed = document.getElementById('btnModeMixed');
+  
+    if (btnZhToEn) {
+      btnZhToEn.onclick = () => startUnitQuiz('zh2en');
+      const desc = btnZhToEn.querySelector('.subtitle');
+      if (desc) desc.innerText = `顯示中文釋義，挑選正確英文（共 ${totalCount} 題）`;
+    }
+  
+    if (btnEnToZh) {
+      btnEnToZh.onclick = () => startUnitQuiz('en2zh');
+      const desc = btnEnToZh.querySelector('.subtitle');
+      if (desc) desc.innerText = `顯示英文單字，挑選正確中文（共 ${totalCount} 題）`;
+    }
+  
+    if (btnMixed) {
+      btnMixed.onclick = () => startUnitQuiz('mixed');
+      const desc = btnMixed.querySelector('.subtitle');
+      if (desc) desc.innerText = `看中文選英文 ${halfCount} 題 + 看英文選中文 ${totalCount - halfCount} 題`;
+      const title = btnMixed.querySelector('.title');
+      if (title) title.innerText = `綜合模式 (${totalCount}題)`;
+    }
+  }
+
+  let isUnitQuiz = false; // 全域新增標記
+  
+  // 啟動單元刷題（確保每一個單字都出題且不重複）
+  function startUnitQuiz(mode) {
+    isUnitQuiz = true;
+    const originalWords = getUnitWords(unitQuizLevel, unitQuizUnit);
+    if (!originalWords || originalWords.length === 0) {
+      alert('該單元暫無單字可刷題！');
+      return;
+    }
+
+    const shuffledWords = [...originalWords].sort(() => 0.5 - Math.random());
+    let queue = [];
+
+    if (mode === 'zh2en' || mode === 'zh-to-en') {
+      queue = shuffledWords.map(w => ({ wordObj: w, mode: 'zh2en' }));
+    } else if (mode === 'en2zh' || mode === 'en-to-zh') {
+      queue = shuffledWords.map(w => ({ wordObj: w, mode: 'en2zh' }));
+    } else if (mode === 'mixed') {
+      const halfIndex = Math.ceil(shuffledWords.length / 2);
+      shuffledWords.forEach((word, index) => {
+        const qMode = index < halfIndex ? 'zh2en' : 'en2zh';
+        queue.push({ wordObj: word, mode: qMode });
+      });
+      queue.sort(() => 0.5 - Math.random());
+    }
+
+    quizQueue = queue;
+    isWrongQuizMode = false;
+    currentQuizIndex = 0;
+    quizCorrectCount = 0;
+    quizWrongCount = 0;
+    quizWrongList = [];
+
+    showPage('pageQuiz');
+    renderQuizQuestion();
+  }
+  function openUnitList(level) {
+    currentLevel = level;
+    showPage('pageUnitList');
+    document.getElementById('unitListTitle').innerText = `${LEVEL_NAMES[level]} - 單元選擇`;
+    const grid = document.getElementById('unitGrid');
+    grid.innerHTML = '';
+
+    const startUnit = (level - 1) * 20 + 1;
+    const endUnit = level * 20;
+
+    const learnedSet = new Set(getLearnedWords());
+    const famMap = getFamiliarityMap();
+
+    for (let u = startUnit; u <= endUnit; u++) {
+      const words = getUnitWords(level, u);
+      const wordCount = words.length;
+      const isEmpty = wordCount === 0;
+
+      const learnedCount = words.filter(w => learnedSet.has(w.word)).length;
+      const knowCount = words.filter(w => famMap[w.word] === 'know').length;
+
+      const learnPercent = isEmpty ? 0 : Math.min(100, Math.round((learnedCount / Math.max(1, wordCount)) * 100));
+      const famPercent = isEmpty ? 0 : Math.min(100, Math.round((knowCount / Math.max(1, wordCount)) * 100));
+
+      const item = document.createElement('div');
+      item.className = `grid-item ${isEmpty ? 'empty-unit' : ''}`;
+      item.onclick = () => openWordList(u);
+      item.innerHTML = `
+        <div>
+          <div class="title">Unit ${u}</div>
+          <div class="subtitle">${isEmpty ? '🚧 建置中' : wordCount + ' 個單字'}</div>
+        </div>
+        ${!isEmpty ? `
+        <div class="grid-progress-container">
+          <div>
+            <div class="progress-label"><span>瀏覽進度</span><span>${learnPercent}%</span></div>
+            <div class="progress-bar-wrap"><div class="progress-bar-fill white" style="width: ${learnPercent}%;"></div></div>
+          </div>
+          <div>
+            <div class="progress-label"><span>熟悉度</span><span>${famPercent}%</span></div>
+            <div class="progress-bar-wrap"><div class="progress-bar-fill green" style="width: ${famPercent}%;"></div></div>
+          </div>
+        </div>` : ''}
+      `;
+      grid.appendChild(item);
+    }
+  }
+
+  function openWordList(unit) {
+    currentUnit = unit;
+    showPage('pageWordList');
+    document.getElementById('wordListTitle').innerText = `Unit ${unit} 單字列表`;
+    
+    currentWords = getUnitWords(currentLevel, unit);
+    const container = document.getElementById('wordListContainer');
+    container.innerHTML = '';
+
+    if (currentWords.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div>🚧</div>
+          <p>Unit ${unit} 內容尚未載入或建置中</p>
+        </div>
+      `;
+      return;
+    }
+
+    const famMap = getFamiliarityMap();
+
+    currentWords.forEach((item, idx) => {
+      const pos = item.pos || item.partOfSpeech || '';
+      const trans = item.trans || item.translation || item.meaning || item.ch || '';
+      const famStatus = famMap[item.word];
+
+      let colorStyle = 'color: #ffffff;';
+      if (famStatus === 'know') {
+        colorStyle = 'color: var(--accent-green);';
+      } else if (famStatus === 'dont_know') {
+        colorStyle = 'color: var(--accent-red);';
+      }
+
+      const div = document.createElement('div');
+      div.className = 'word-item';
+      div.onclick = () => openCardDetail(idx);
+      div.innerHTML = `
+        <div class="w-title" style="${colorStyle}">${item.word || ''}</div>
+        <div class="w-trans">${pos} ${trans}</div>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  function openCardDetail(index) {
+    currentCardIndex = index;
+    showPage('pageCardDetail');
+    renderCard();
+  }
+
+  let modalOnCloseCallback = null;
+
+  function showCustomModal(message, callback = null) {
+    document.getElementById('gameModalText').innerText = message;
+    document.getElementById('gameModal').style.display = 'flex';
+    modalOnCloseCallback = callback;
+  }
+  
+  function closeGameModal() {
+    document.getElementById('gameModal').style.display = 'none';
+    if (modalOnCloseCallback) {
+      modalOnCloseCallback();
+      modalOnCloseCallback = null;
+    }
+  }
+  function renderCard() {
+    const item = currentWords[currentCardIndex];
+    if (!item) return;
+
+    markWordAsLearned(item.word);
+
+    const pos = item.pos || item.partOfSpeech || '';
+    const trans = item.trans || item.translation || item.meaning || item.ch || '';
+    const phonetic = item.phonetic || item.kk || item.phoneticSymbol || '';
+    const collocation = item.collocation || item.collocations || item.combo || '無';
+    const synonym = item.synonym || item.synonyms || '無';
+    const enEx = item.enEx || item.exampleEn || item.example_en || item.sentenceEn || item.example || '暫無例句';
+    const chEx = item.chEx || item.exampleCh || item.example_ch || item.sentenceCh || '';
+
+    document.getElementById('cardProgress').innerText = `${currentCardIndex + 1}/${currentWords.length}`;
+    document.getElementById('cardUnitName').innerText = `7000單字 Level ${currentLevel} - Unit ${currentUnit}`;
+    
+    const wordEl = document.getElementById('cardWord');
+    wordEl.innerText = item.word || '';
+
+    const famStatus = getWordFamiliarity(item.word);
+    updateCardFamiliarityUI(famStatus);
+
+    document.getElementById('cardPhonetic').innerText = phonetic;
+    document.getElementById('cardMeaning').innerText = `${pos} ${trans}`.trim();
+    document.getElementById('cardCollocation').innerText = collocation;
+    document.getElementById('cardSynonym').innerText = synonym;
+
+    document.getElementById('cardExamples').innerHTML = `
+      <div>
+        <div class="example-en">${enEx}</div>
+        <div class="example-ch">${chEx}</div>
+      </div>
+    `;
+
+    const starBtn = document.getElementById('cardStarBtn');
+    if (isWordStarred(item)) starBtn.classList.add('active');
+    else starBtn.classList.remove('active');
+
+    speakCurrentWord();
+  }
+
+  function updateCardFamiliarityUI(status) {
+    const wordEl = document.getElementById('cardWord');
+    const btnDontKnow = document.getElementById('btnDontKnow');
+    const btnKnow = document.getElementById('btnKnow');
+
+    if (status === 'dont_know') {
+      wordEl.style.color = 'var(--accent-red)';
+      btnDontKnow.style.backgroundColor = 'var(--accent-red)';
+      btnDontKnow.style.color = '#ffffff';
+      btnKnow.style.backgroundColor = '#1c3a2b';
+      btnKnow.style.color = 'var(--accent-green)';
+    } else if (status === 'know') {
+      wordEl.style.color = 'var(--accent-green)';
+      btnKnow.style.backgroundColor = 'var(--accent-green)';
+      btnKnow.style.color = '#ffffff';
+      btnDontKnow.style.backgroundColor = '#3a1c1c';
+      btnDontKnow.style.color = 'var(--accent-red)';
+    } else {
+      wordEl.style.color = 'var(--accent-yellow)';
+      btnDontKnow.style.backgroundColor = '#3a1c1c';
+      btnDontKnow.style.color = 'var(--accent-red)';
+      btnKnow.style.backgroundColor = '#1c3a2b';
+      btnKnow.style.color = 'var(--accent-green)';
+    }
+  }
+
+  function setFamiliarityCurrent(status) {
+    const item = currentWords[currentCardIndex];
+    if (!item) return;
+
+    const currentStatus = getWordFamiliarity(item.word);
+    const newStatus = (currentStatus === status) ? null : status;
+    setWordFamiliarity(item.word, newStatus);
+    updateCardFamiliarityUI(newStatus);
+
+    // 標記我很熟獎勵水滴
+    if (newStatus === 'know') {
+      addFarmResource(1, 0);
+    }
+  }
+
+  function toggleCardDetailStar() {
+    const item = currentWords[currentCardIndex];
+    if (!item) return;
+    let list = getStarredWords();
+    const idx = list.findIndex(i => i.word === item.word);
+    const starBtn = document.getElementById('cardStarBtn');
+
+    if (idx >= 0) {
+      list.splice(idx, 1);
+      starBtn.classList.remove('active');
+    } else {
+      list.push(item);
+      starBtn.classList.add('active');
+    }
+    saveStarredWords(list);
+  }
+
+  function prevCard() {
+    if (currentCardIndex > 0) {
+      currentCardIndex--;
+      renderCard();
+    }
+  }
+
+  function nextCard() {
+    if (currentCardIndex < currentWords.length - 1) {
+      currentCardIndex++;
+      renderCard();
+    }
+  }
+
+  function speakCurrentWord() {
+    const item = currentWords[currentCardIndex];
+    if (item && item.word) speakText(item.word);
+  }
+
+  let currentAudio = null;
+
+  function speakText(text) {
+    if (!text) return;
+  
+    const audioUrl = `https://dict.youdao.com/dictvoice?type=0&audio=${encodeURIComponent(text)}`;
+  
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+  
+    currentAudio = new Audio(audioUrl);
+    
+    currentAudio.play().catch(() => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'en-US';
+        window.speechSynthesis.speak(u);
+      }
+    });
+  }
+
+  function openQuizPinPage() {
+    const allWords = getAllAvailableWords();
+    if (allWords.length === 0) {
+      alert("目前尚無可供測驗的單字資料！");
+      return;
+    }
+    pinString = "10";
+    updatePinDisplay();
+    showPage('pageQuizPin');
+  }
+
+  function appendPin(num) {
+    if (pinString.length >= 3) return;
+    if (pinString === "0") pinString = num;
+    else pinString += num;
+    updatePinDisplay();
+  }
+
+  function deletePin() {
+    pinString = pinString.slice(0, -1);
+    if (pinString === "") pinString = "0";
+    updatePinDisplay();
+  }
+
+  function updatePinDisplay() {
+    document.getElementById('pinValue').innerText = pinString;
+  }
+
+  function startQuizByPin() {
+    isUnitQuiz = false; // 重置標記
+    const count = parseInt(pinString, 10);
+    if (isNaN(count) || count <= 0) {
+      alert("請輸入有效的題數！");
+      return;
+    }
+
+    const allWords = getAllAvailableWords();
+    if (allWords.length === 0) return;
+
+    const shuffled = [...allWords].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, Math.min(count, shuffled.length));
+
+    quizQueue = selected.map(w => ({ wordObj: w, mode: 'en2zh' }));
+
+    isWrongQuizMode = false;
+    currentQuizIndex = 0;
+    quizCorrectCount = 0;
+    quizWrongCount = 0;
+    quizWrongList = [];
+
+    showPage('pageQuiz');
+    renderQuizQuestion();
+  }
+
+  function renderQuizQuestion() {
+    if (currentQuizIndex >= quizQueue.length) {
+      showQuizResultModal();
+      return;
+    }
+
+    const qItem = quizQueue[currentQuizIndex];
+    currentQuizTarget = qItem.wordObj || qItem;
+    currentQuizMode = qItem.mode || 'en2zh';
+    
+    //處理題目出處顯示
+    const sourceTag = document.getElementById('quizSourceTag');
+    if (sourceTag) {
+      if (currentQuizTarget.source) {
+        sourceTag.innerText = `🏛️ 出處：${currentQuizTarget.source}`;
+        sourceTag.style.display = 'block';
+      } else {
+        sourceTag.style.display = 'none';
+      }
+    }
+
+    const allWords = getAllAvailableWords();
+
+    document.getElementById('quizProgressTitle').innerText = `題目 ${currentQuizIndex + 1}/${quizQueue.length}`;
+    
+    const starBtn = document.getElementById('quizStarBtn');
+    if (isWordStarred(currentQuizTarget)) starBtn.classList.add('active');
+    else starBtn.classList.remove('active');
+
+    const container = document.getElementById('quizOptionsContainer');
+    container.innerHTML = '';
+
+    const distractors = allWords
+      .filter(w => w.word !== currentQuizTarget.word)
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 3);
+
+    if (currentQuizMode === 'en2zh') {
+      document.getElementById('quizWord').innerText = currentQuizTarget.word || '';
+      document.getElementById('quizPhoneticWrap').style.display = 'flex';
+      document.getElementById('quizPhonetic').innerText = currentQuizTarget.phonetic || currentQuizTarget.kk || '';
+
+      const targetTrans = (currentQuizTarget.pos || '') + " " + (currentQuizTarget.trans || currentQuizTarget.translation || currentQuizTarget.meaning || '');
+
+      let choices = distractors.map(d => ({
+        isCorrect: false,
+        text: (d.pos || '') + " " + (d.trans || d.translation || d.meaning || '')
+      }));
+
+      choices.push({ isCorrect: true, text: targetTrans });
+      choices.sort(() => 0.5 - Math.random());
+
+      choices.forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = 'quiz-opt-btn';
+        btn.innerText = c.text;
+        btn.onclick = () => handleQuizAnswer(c.isCorrect);
+        container.appendChild(btn);
+      });
+
+      speakText(currentQuizTarget.word);
+    } else {
+      const targetTrans = (currentQuizTarget.pos || '') + " " + (currentQuizTarget.trans || currentQuizTarget.translation || currentQuizTarget.meaning || '');
+      document.getElementById('quizWord').innerText = targetTrans;
+      document.getElementById('quizPhoneticWrap').style.display = 'none';
+
+      let choices = distractors.map(d => ({
+        isCorrect: false,
+        text: d.word || ''
+      }));
+
+      choices.push({ isCorrect: true, text: currentQuizTarget.word || '' });
+      choices.sort(() => 0.5 - Math.random());
+
+      choices.forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = 'quiz-opt-btn';
+        btn.innerText = c.text;
+        btn.onclick = () => handleQuizAnswer(c.isCorrect);
+        container.appendChild(btn);
+      });
+    }
+
+    const unknownBtn = document.createElement('button');
+    unknownBtn.className = 'quiz-opt-btn quiz-opt-unknown';
+    unknownBtn.innerText = '❓ 我不知道';
+    unknownBtn.onclick = () => handleQuizAnswer(false);
+    container.appendChild(unknownBtn);
+  }
+
+  function handleQuizAnswer(isCorrect) {
+    if (isCorrect) {
+      quizCorrectCount++;
+      addFarmResource(1, 0); // 答對題目獲得水滴
+      if (isWrongQuizMode) {
+        removeWrongWordLS(currentQuizTarget.word);
+      }
+    } else {
+      quizWrongCount++;
+      quizWrongList.push(currentQuizTarget);
+      addWrongWordLS(currentQuizTarget);
+    }
+
+    const modal = document.getElementById('instantFeedbackModal');
+    const banner = document.getElementById('instantFeedbackBanner');
+
+    if (isCorrect) {
+      banner.innerHTML = `<span style="color: var(--accent-green);">🎉 答對了！ (+1 💧)</span>`;
+    } else {
+      banner.innerHTML = `<span style="color: var(--accent-red);">❌ 答錯了！</span>`;
+    }
+
+    const answeredSoFar = currentQuizIndex + 1;
+    const rate = Math.round((quizCorrectCount / answeredSoFar) * 100);
+
+    document.getElementById('instantAccuracyText').innerText = `即時正確率：${rate}%`;
+    document.getElementById('instantDetailText').innerText = `已答：${answeredSoFar} 題 | 答對：${quizCorrectCount} 題 | 答錯/不懂：${quizWrongCount} 題`;
+
+    drawPieChartCanvas('instantPieChartCanvas', quizCorrectCount, quizWrongCount);
+
+    modal.classList.add('active');
+
+    if (feedbackTimer) clearTimeout(feedbackTimer);
+
+    feedbackTimer = setTimeout(() => {
+      modal.classList.remove('active');
+      openWordDetailModal(currentQuizTarget);
+    }, 1200);
+  }
+
+  function skipInstantFeedback() {
+    if (feedbackTimer) clearTimeout(feedbackTimer);
+    document.getElementById('instantFeedbackModal').classList.remove('active');
+    openWordDetailModal(currentQuizTarget);
+  }
+
+  function toggleCurrentQuizWordStar() {
+    if (!currentQuizTarget) return;
+    let list = getStarredWords();
+    const idx = list.findIndex(i => i.word === currentQuizTarget.word);
+    const starBtn = document.getElementById('quizStarBtn');
+
+    if (idx >= 0) {
+      list.splice(idx, 1);
+      starBtn.classList.remove('active');
+    } else {
+      list.push(currentQuizTarget);
+      starBtn.classList.add('active');
+    }
+    saveStarredWords(list);
+  }
+
+  function openWordDetailModal(item) {
+    const pos = item.pos || item.partOfSpeech || '';
+    const trans = item.trans || item.translation || item.meaning || item.ch || '';
+    const phonetic = item.phonetic || item.kk || item.phoneticSymbol || '';
+    const collocation = item.collocation || item.collocations || item.combo || '無';
+    const synonym = item.synonym || item.synonyms || '無';
+    const enEx = item.enEx || item.exampleEn || item.example_en || item.sentenceEn || item.example || '暫無例句';
+    const chEx = item.chEx || item.exampleCh || item.example_ch || item.sentenceCh || '';
+
+    document.getElementById('mWord').innerText = item.word || '';
+    document.getElementById('mPhonetic').innerText = phonetic;
+    document.getElementById('mMeaning').innerText = `${pos} ${trans}`.trim();
+    document.getElementById('mCollocation').innerText = collocation;
+    document.getElementById('mSynonym').innerText = synonym;
+
+    document.getElementById('mExamples').innerHTML = `
+      <div>
+        <div class="example-en">${enEx}</div>
+        <div class="example-ch">${chEx}</div>
+      </div>
+    `;
+
+    document.getElementById('mAudioBtn').onclick = () => speakText(item.word);
+    document.getElementById('wordDetailModal').classList.add('active');
+  }
+
+  function closeWordDetailModal() {
+    document.getElementById('wordDetailModal').classList.remove('active');
+    currentQuizIndex++;
+    renderQuizQuestion();
+  }
+
+  async function confirmExitQuiz() {
+    if (await customConfirm("確定要放棄本次測驗並返回嗎？")) {
+      showPage('pageLobby');
+    }
+  }
+
+  function showQuizResultModal() {
+    const total = quizQueue.length;
+    const rate = total > 0 ? Math.round((quizCorrectCount / total) * 100) : 0;
+    
+    if (isUnitQuiz) {
+      saveUnitQuizRecord(unitQuizLevel, unitQuizUnit, rate);
+    }
+    
+    document.getElementById('resultAccuracyText').innerText = `正確率：${rate}%`;
+    document.getElementById('resultDetailText').innerText = `總題數：${total} 題 | 答對：${quizCorrectCount} 題 | 答錯/不懂：${quizWrongCount} 題`;
+
+    const reviewBtn = document.getElementById('reviewWrongBtn');
+    if (quizWrongList.length === 0) {
+      reviewBtn.innerText = '🎉 無錯題 (全對)';
+      reviewBtn.style.opacity = '0.6';
+    } else {
+      reviewBtn.innerText = `查看錯題 (${quizWrongList.length} 題)`;
+      reviewBtn.style.opacity = '1';
+    }
+
+    drawPieChartCanvas('pieChartCanvas', quizCorrectCount, quizWrongCount);
+
+    document.getElementById('quizResultModal').classList.add('active');
+  }
+
+  function drawPieChartCanvas(canvasId, correct, wrong) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const total = correct + wrong;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = Math.min(centerX, centerY) - 8;
+
+    if (total === 0) return;
+
+    let startAngle = -0.5 * Math.PI;
+
+    const correctAngle = (correct / total) * 2 * Math.PI;
+    if (correct > 0) {
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, startAngle, startAngle + correctAngle);
+      ctx.closePath();
+      ctx.fillStyle = '#10b981';
+      ctx.fill();
+    }
+
+    startAngle += correctAngle;
+    const wrongAngle = (wrong / total) * 2 * Math.PI;
+    if (wrong > 0) {
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, startAngle, startAngle + wrongAngle);
+      ctx.closePath();
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
+    }
+  }
+
+  function finishQuizAndReturn() {
+    document.getElementById('quizResultModal').classList.remove('active');
+    showPage('pageLobby');
+  }
+
+  function startWrongWordsReview() {
+    if (!quizWrongList || quizWrongList.length === 0) {
+      alert("太棒了！本次測驗全對，沒有錯題！");
+      return;
+    }
+    document.getElementById('quizResultModal').classList.remove('active');
+    wrongReviewIndex = 0;
+    showPage('pageWrongReviewCard');
+    renderWrongCard();
+  }
+
+  function renderWrongCard() {
+    const item = quizWrongList[wrongReviewIndex];
+    if (!item) return;
+
+    const pos = item.pos || item.partOfSpeech || '';
+    const trans = item.trans || item.translation || item.meaning || item.ch || '';
+    const phonetic = item.phonetic || item.kk || item.phoneticSymbol || '';
+    const collocation = item.collocation || item.collocations || item.combo || '無';
+    const synonym = item.synonym || item.synonyms || '無';
+    const enEx = item.enEx || item.exampleEn || item.example_en || item.sentenceEn || item.example || '暫無例句';
+    const chEx = item.chEx || item.exampleCh || item.example_ch || item.sentenceCh || '';
+
+    document.getElementById('wrongProgress').innerText = `${wrongReviewIndex + 1}/${quizWrongList.length}`;
+    document.getElementById('wCardWord').innerText = item.word || '';
+    document.getElementById('wCardPhonetic').innerText = phonetic;
+    document.getElementById('wCardMeaning').innerText = `${pos} ${trans}`.trim();
+    document.getElementById('wCardCollocation').innerText = collocation;
+    document.getElementById('wCardSynonym').innerText = synonym;
+
+    document.getElementById('wCardExamples').innerHTML = `
+      <div>
+        <div class="example-en">${enEx}</div>
+        <div class="example-ch">${chEx}</div>
+      </div>
+    `;
+
+    updateWrongStarState();
+    speakText(item.word);
+  }
+
+  function prevWrongCard() {
+    if (wrongReviewIndex > 0) {
+      wrongReviewIndex--;
+      renderWrongCard();
+    }
+  }
+
+  function nextWrongCard() {
+    if (wrongReviewIndex < quizWrongList.length - 1) {
+      wrongReviewIndex++;
+      renderWrongCard();
+    }
+  }
+
+  function toggleWrongWordStar() {
+    const item = quizWrongList[wrongReviewIndex];
+    if (!item) return;
+    let list = getStarredWords();
+    const idx = list.findIndex(i => i.word === item.word);
+    const starBtn = document.getElementById('wrongStarBtn');
+
+    if (idx >= 0) {
+      list.splice(idx, 1);
+      starBtn.classList.remove('active');
+    } else {
+      list.push(item);
+      starBtn.classList.add('active');
+    }
+    saveStarredWords(list);
+  }
+
+  function updateWrongStarState() {
+    const item = quizWrongList[wrongReviewIndex];
+    const starBtn = document.getElementById('wrongStarBtn');
+    if (item && isWordStarred(item)) starBtn.classList.add('active');
+    else starBtn.classList.remove('active');
+  }
+
+  function exitWrongReview() {
+    showPage('pageLobby');
+  }
+
+  function openWrongBookLobby() {
+    updateWrongBookStats();
+    showPage('pageWrongBookLobby');
+  }
+
+  function updateWrongBookStats() {
+    const wrongList = getWrongWordsLS();
+    const starList = getStarredWords();
+    document.getElementById('statWrongCount').innerText = wrongList.length;
+    document.getElementById('statStarCount').innerText = starList.length;
+  }
+
+  function startWrongBookQuiz(mode) {
+    isUnitQuiz = false; // 重置標記
+    let sourceWords = [];
+    if (mode === 'wrong') {
+      sourceWords = getWrongWordsLS();
+      if (sourceWords.length === 0) {
+        alert("目前沒有答錯單字紀錄喔！");
+        return;
+      }
+      isWrongQuizMode = true;
+    } else if (mode === 'star') {
+      sourceWords = getStarredWords();
+      if (sourceWords.length === 0) {
+        alert("目前沒有星號標記單字喔！");
+        return;
+      }
+      isWrongQuizMode = false;
+    } else if (mode === 'all') {
+      const wrongList = getWrongWordsLS();
+      const starList = getStarredWords();
+      const map = new Map();
+      [...wrongList, ...starList].forEach(item => {
+        if (item && item.word) map.set(item.word, item);
+      });
+      sourceWords = Array.from(map.values());
+
+      if (sourceWords.length === 0) {
+        alert("目前沒有任何錯題或星號單字紀錄喔！");
+        return;
+      }
+      isWrongQuizMode = false;
+    }
+
+    quizQueue = sourceWords.map(w => ({ wordObj: w, mode: 'en2zh' })).sort(() => 0.5 - Math.random());
+    currentQuizIndex = 0;
+    quizCorrectCount = 0;
+    quizWrongCount = 0;
+    quizWrongList = [];
+
+    showPage('pageQuiz');
+    renderQuizQuestion();
+  }
+
+  function openWrongListBrowser() {
+    showPage('pageWrongListBrowser');
+    switchBrowserTab('wrong');
+  }
+
+  function switchBrowserTab(type) {
+    currentBrowserTab = type;
+    const tabWrong = document.getElementById('tabWrongBtn');
+    const tabStar = document.getElementById('tabStarBtn');
+
+    if (type === 'wrong') {
+      tabWrong.className = 'modal-btn';
+      tabStar.className = 'modal-btn secondary-btn';
+    } else {
+      tabStar.className = 'modal-btn';
+      tabWrong.className = 'modal-btn secondary-btn';
+    }
+
+    renderBrowserList();
+  }
+
+  function renderBrowserList() {
+    const container = document.getElementById('wrongBrowserListContainer');
+    container.innerHTML = '';
+
+    const list = currentBrowserTab === 'wrong' ? getWrongWordsLS() : getStarredWords();
+
+    if (list.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div>📭</div>
+          <p>${currentBrowserTab === 'wrong' ? '尚無答錯單字紀錄' : '尚無星號標記單字'}</p>
+        </div>
+      `;
+      return;
+    }
+
+    list.forEach((item, idx) => {
+      const pos = item.pos || item.partOfSpeech || '';
+      const trans = item.trans || item.translation || item.meaning || item.ch || '';
+      const div = document.createElement('div');
+      div.className = 'word-item';
+      div.onclick = () => {
+        currentWords = list;
+        openCardDetail(idx);
+      };
+      div.innerHTML = `
+        <div class="w-title">${item.word || ''}</div>
+        <div class="w-trans">${pos} ${trans}</div>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  function clearWrongWordsUI() {
+    if (confirm("確定要清空 LocalStorage 中的所有答錯紀錄嗎？")) {
+      localStorage.removeItem('wrong_words');
+      updateWrongBookStats();
+      if (document.getElementById('pageWrongListBrowser').classList.contains('active')) {
+        renderBrowserList();
+      }
+    }
+  }
+
+  function clearStarredWordsUI() {
+    if (confirm("確定要清空 LocalStorage 中的所有星號標記單字嗎？")) {
+      localStorage.removeItem('starred_words');
+      updateWrongBookStats();
+      if (document.getElementById('pageWrongListBrowser').classList.contains('active')) {
+        renderBrowserList();
+      }
+    }
+  }
+
+  function openFamiliarityLobby() {
+    showPage('pageFamiliarityBrowser');
+    switchFamTab('know');
+  }
+
+  function switchFamTab(type) {
+    currentFamTab = type;
+    const tabKnow = document.getElementById('tabKnowBtn');
+    const tabDontKnow = document.getElementById('tabDontKnowBtn');
+
+    if (type === 'know') {
+      tabKnow.className = 'modal-btn';
+      tabKnow.style.backgroundColor = 'var(--accent-green)';
+      tabKnow.style.color = '#ffffff';
+      tabKnow.style.border = 'none';
+
+      tabDontKnow.className = 'modal-btn secondary-btn';
+      tabDontKnow.style.backgroundColor = 'transparent';
+      tabDontKnow.style.color = 'var(--accent-red)';
+      tabDontKnow.style.borderColor = 'var(--accent-red)';
+    } else {
+      tabDontKnow.className = 'modal-btn';
+      tabDontKnow.style.backgroundColor = 'var(--accent-red)';
+      tabDontKnow.style.color = '#ffffff';
+      tabDontKnow.style.border = 'none';
+
+      tabKnow.className = 'modal-btn secondary-btn';
+      tabKnow.style.backgroundColor = 'transparent';
+      tabKnow.style.color = 'var(--accent-green)';
+      tabKnow.style.borderColor = 'var(--accent-green)';
+    }
+
+    renderFamBrowserList();
+  }
+
+  function renderFamBrowserList() {
+    const container = document.getElementById('famBrowserListContainer');
+    container.innerHTML = '';
+
+    const allWords = getAllAvailableWords();
+    const famMap = getFamiliarityMap();
+
+    const filtered = allWords.filter(w => famMap[w.word] === currentFamTab);
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div>📭</div>
+          <p>${currentFamTab === 'know' ? '尚無標記為「我很熟」的單字' : '尚無標記為「我不會」的單字'}</p>
+        </div>
+      `;
+      return;
+    }
+
+    filtered.forEach((item, idx) => {
+      const pos = item.pos || item.partOfSpeech || '';
+      const trans = item.trans || item.translation || item.meaning || item.ch || '';
+      const div = document.createElement('div');
+      div.className = 'word-item';
+      div.onclick = () => {
+        currentWords = filtered;
+        openCardDetail(idx);
+      };
+      div.innerHTML = `
+        <div class="w-title" style="color: ${currentFamTab === 'know' ? 'var(--accent-green)' : 'var(--accent-red)'};">${item.word || ''}</div>
+        <div class="w-trans">${pos} ${trans}</div>
+      `;
+      container.appendChild(div);
+    });
+  }
+  // 全域禁止右鍵與行動端長按跳出選單
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+  window.onload = () => {
+    updateLobbyStats();
+    showPage('pageLobby');
+  };
+
+  function customConfirm(message) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('custom-confirm-modal');
+      const msgEl = document.getElementById('confirm-message');
+      const okBtn = document.getElementById('confirm-ok-btn');
+      const cancelBtn = document.getElementById('confirm-cancel-btn');
+  
+      if (message) msgEl.textContent = message;
+      modal.classList.remove('hidden');
+      modal.classList.add('active');
+  
+      const cleanup = () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('active');
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+      };
+  
+      const onOk = () => {
+        cleanup();
+        resolve(true);
+      };
+  
+      const onCancel = () => {
+        cleanup();
+        resolve(false);
+      };
+  
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+    });
+  }
+/* ==========================================
+     第六區塊：副本冒險地下城邏輯 (Boss & Spelling)
+     ========================================== */
+
+  function openBattleDungeonLobby() {
+    showPage('pageBattleDungeonLobby');
+  }
+
+  /* --- 1. Time Attack BOSS 討伐戰 --- */
+  let bossHp = 1000;
+  let maxBossHp = 1000;
+  let playerHp = 100;
+  let maxPlayerHp = 100;
+  let bossTimeLeft = 60;
+  let bossCombo = 0;
+  let bossTimerId = null;
+  let currentBossTarget = null;
+
+  function startBossBattle() {
+    const allWords = getAllAvailableWords();
+    if (allWords.length === 0) {
+      alert("尚無可用的單字資料！");
+      return;
+    }
+
+    bossHp = 1000;
+    playerHp = 100;
+    bossTimeLeft = 60;
+    bossCombo = 0;
+
+    updateBossUI();
+    showPage('pageBossBattle');
+    renderBossQuestion();
+
+    if (bossTimerId) clearInterval(bossTimerId);
+    bossTimerId = setInterval(() => {
+      bossTimeLeft--;
+      document.getElementById('bossTimerText').innerText = `⏱️ ${bossTimeLeft} 秒`;
+
+      if (bossTimeLeft <= 0) {
+        clearInterval(bossTimerId);
+        finishBossBattle(false, "⏰ 時間到！ BOSS 逃跑了...");
+      }
+    }, 1000);
+  }
+
+  function updateBossUI() {
+    const bossPercent = Math.max(0, Math.round((bossHp / maxBossHp) * 100));
+    document.getElementById('bossHpText').innerText = `${bossHp} / ${maxBossHp}`;
+    document.getElementById('bossHpBar').style.width = `${bossPercent}%`;
+
+    document.getElementById('playerHpText').innerText = `❤️ 玩家 HP: ${playerHp}/${maxPlayerHp}`;
+    document.getElementById('bossComboBadge').innerText = `🔥 Combo x${bossCombo}`;
+  }
+
+  function renderBossQuestion() {
+    if (bossHp <= 0 || playerHp <= 0) return;
+
+    const allWords = getAllAvailableWords();
+    currentBossTarget = allWords[Math.floor(Math.random() * allWords.length)];
+
+    document.getElementById('bossQuizWord').innerText = currentBossTarget.word || '';
+
+    const container = document.getElementById('bossQuizOptions');
+    container.innerHTML = '';
+
+    const distractors = allWords
+      .filter(w => w.word !== currentBossTarget.word)
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 3);
+
+    const targetTrans = (currentBossTarget.pos || '') + " " + (currentBossTarget.trans || currentBossTarget.translation || currentBossTarget.meaning || '');
+
+    let choices = distractors.map(d => ({
+      isCorrect: false,
+      text: (d.pos || '') + " " + (d.trans || d.translation || d.meaning || '')
+    }));
+
+    choices.push({ isCorrect: true, text: targetTrans });
+    choices.sort(() => 0.5 - Math.random());
+
+    choices.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'quiz-opt-btn';
+      btn.innerText = c.text;
+      btn.onclick = () => handleBossAnswer(c.isCorrect);
+      container.appendChild(btn);
+    });
+
+    speakText(currentBossTarget.word);
+  }
+
+  function handleBossAnswer(isCorrect) {
+    if (isCorrect) {
+      bossCombo++;
+      const baseDmg = 120;
+      const dmg = Math.floor(baseDmg * (1 + (bossCombo - 1) * 0.25));
+      bossHp = Math.max(0, bossHp - dmg);
+
+      if (bossHp <= 0) {
+        clearInterval(bossTimerId);
+        addFarmResource(15, 1);
+        finishBossBattle(true, "🎉 討伐成功！勇者獲得 15 滴水與肥料獎勵！");
+        return;
+      }
+    } else {
+      bossCombo = 0;
+      playerHp = Math.max(0, playerHp - 25);
+      addWrongWordLS(currentBossTarget);
+
+      if (playerHp <= 0) {
+        clearInterval(bossTimerId);
+        finishBossBattle(false, "💀 你已被 BOSS 擊敗！回去多加修練吧！");
+        return;
+      }
+    }
+
+    updateBossUI();
+    renderBossQuestion();
+  }
+
+  function finishBossBattle(isWin, message) {
+    alert(message);
+    showPage('pageBattleDungeonLobby');
+  }
+
+  async function confirmExitBoss() {
+    if (await customConfirm("確定要放棄討伐 BOSS 並返回嗎？")) {
+      if (bossTimerId) clearInterval(bossTimerId);
+      showPage('pageBattleDungeonLobby');
+    }
+  }
+
+  /* --- 2. 字母拼字地下城 --- */
+  let spellingQueue = [];
+  let spellingIndex = 0;
+  let currentSpellingWord = null;
+  let currentSelectedLetters = [];
+  let currentPoolLetters = [];
+  let spellingRewardCount = 0;
+
+  function startSpellingDungeon() {
+    const allWords = getAllAvailableWords().filter(w => w.word && /^[a-zA-Z]+$/.test(w.word.trim()));
+    if (allWords.length === 0) {
+      alert("尚無適合拼寫的純英文單字！");
+      return;
+    }
+
+    spellingQueue = [...allWords].sort(() => 0.5 - Math.random()).slice(0, 10);
+    spellingIndex = 0;
+    spellingRewardCount = 0;
+
+    showPage('pageSpellingDungeon');
+    renderSpellingQuestion();
+  }
+
+  function renderSpellingQuestion() {
+    if (spellingIndex >= spellingQueue.length) {
+      showCustomModal(`🎉 恭喜通關拼字地下城！累計獲得 ${spellingRewardCount} 滴水滴！`);
+      showPage('pageBattleDungeonLobby');
+      return;
+    }
+
+    currentSpellingWord = spellingQueue[spellingIndex];
+    const targetStr = currentSpellingWord.word.trim().toLowerCase();
+
+    document.getElementById('spellingProgressText').innerText = `關卡 ${spellingIndex + 1}/${spellingQueue.length}`;
+    document.getElementById('spellingScoreText').innerText = `💧 累計獎勵: +${spellingRewardCount}`;
+
+    const pos = currentSpellingWord.pos || currentSpellingWord.partOfSpeech || '';
+    const trans = currentSpellingWord.trans || currentSpellingWord.translation || currentSpellingWord.meaning || '';
+    document.getElementById('spellingMeaning').innerText = `${pos} ${trans}`.trim();
+
+    currentSelectedLetters = [];
+    currentPoolLetters = targetStr.split('').map((char, id) => ({ id, char, used: false })).sort(() => 0.5 - Math.random());
+
+    updateSpellingBoard();
+    speakText(targetStr);
+  }
+
+  function updateSpellingBoard() {
+    const slotsContainer = document.getElementById('spellingSlots');
+    slotsContainer.innerHTML = '';
+
+    const targetLen = currentSpellingWord.word.trim().length;
+    for (let i = 0; i < targetLen; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'spelling-slot';
+      if (i < currentSelectedLetters.length) {
+        slot.innerText = currentSelectedLetters[i].char.toUpperCase();
+        slot.onclick = () => deselectSpellingLetter(i);
+      }
+      slotsContainer.appendChild(slot);
+    }
+
+    const poolContainer = document.getElementById('spellingPool');
+    poolContainer.innerHTML = '';
+
+    currentPoolLetters.forEach(item => {
+      const tile = document.createElement('div');
+      tile.className = `spelling-tile ${item.used ? 'used' : ''}`;
+      tile.innerText = item.char.toUpperCase();
+      tile.onclick = () => selectSpellingLetter(item.id);
+      poolContainer.appendChild(tile);
+    });
+  }
+
+  function selectSpellingLetter(id) {
+    const item = currentPoolLetters.find(p => p.id === id);
+    if (!item || item.used) return;
+
+    item.used = true;
+    currentSelectedLetters.push(item);
+    updateSpellingBoard();
+  }
+
+  function deselectSpellingLetter(index) {
+    if (index < 0 || index >= currentSelectedLetters.length) return;
+
+    const removed = currentSelectedLetters.splice(index, 1)[0];
+    const poolItem = currentPoolLetters.find(p => p.id === removed.id);
+    if (poolItem) poolItem.used = false;
+
+    updateSpellingBoard();
+  }
+
+  function clearSpellingSlots() {
+    currentSelectedLetters = [];
+    currentPoolLetters.forEach(p => p.used = false);
+    updateSpellingBoard();
+  }
+
+  async function submitSpellingAnswer() {
+    const targetStr = currentSpellingWord.word.trim().toLowerCase();
+    const userStr = currentSelectedLetters.map(l => l.char).join('');
+  
+    if (userStr === targetStr) {
+      spellingRewardCount++;
+      addFarmResource(1, 0);
+      await showCustomModal("🎯 拼寫正確！ (+1 水滴)");
+      spellingIndex++;
+      renderSpellingQuestion();
+    } else {
+      await showCustomModal("❌ 拼寫錯誤，請再試一次！");
+      clearSpellingSlots();
+    }
+  }
+
+  function speakCurrentSpellingWord() {
+    if (currentSpellingWord && currentSpellingWord.word) {
+      speakText(currentSpellingWord.word);
+    }
+  }
+
+  async function confirmExitSpelling() {
+    if (await customConfirm("確定要離開拼字地下城嗎？")) {
+      showPage('pageBattleDungeonLobby');
+    }
+  }
+  // 1. 使用者點擊字母時的處理函式
+function selectLetter(letter) {
+  // 假設 currentAnswer 是儲存玩家已點選字母的陣列
+  if (currentAnswer.length < targetWord.length) {
+    currentAnswer.push(letter);
+    updateUI(); // 更新畫面的格子
+
+    // ⚠️ 關鍵：當填滿最後一個字母時，自動觸發檢查
+    if (currentAnswer.length === targetWord.length) {
+      checkAnswer();
+    }
+  }
+}
+
+// 2. 驗證答案函式
+function checkAnswer() {
+  // ⚠️ 關鍵：加上 .join('') 轉字串，並用 .toLowerCase() 統一轉小寫比對
+  const userString = currentAnswer.join('').toLowerCase();
+  const targetString = targetWord.trim().toLowerCase();
+
+  if (userString === targetString) {
+    // 拼對了！觸發獎勵與下一關
+    handleCorrectAnswer();
+  } else {
+    // 拼錯了！震動或提示
+    handleWrongAnswer();
+  }
+}
+// 陣列隨機洗牌工具（Fisher-Yates 演算法）
+function shuffleArray(array) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// 單一題目生成器（含干擾選項）
+function createUnitQuestion(targetWord, unitWords, type) {
+  // 優先使用同單元其他單字作為干擾選項，若不足則調用全域 ALL_WORDS
+  let pool = unitWords.filter(w => w.en !== targetWord.en);
+  if (pool.length < 3 && typeof ALL_WORDS !== 'undefined') {
+    const extra = ALL_WORDS.filter(w => w.en !== targetWord.en && !pool.some(p => p.en === w.en));
+    pool = pool.concat(extra);
+  }
+
+  const distractors = shuffleArray(pool).slice(0, 3);
+  const options = shuffleArray([targetWord, ...distractors]);
+
+  return {
+    word: targetWord,
+    type: type, // 'zh-to-en' 或 'en-to-zh'
+    promptText: type === 'zh-to-en' ? targetWord.zh : targetWord.en,
+    correctAnswer: type === 'zh-to-en' ? targetWord.en : targetWord.zh,
+    options: options.map(opt => (type === 'zh-to-en' ? opt.en : opt.zh))
+  };
+}
+// 取得 Unit 刷題紀錄
+function getUnitQuizRecord(level, unit) {
+  const data = localStorage.getItem(`quiz_record_${level}_${unit}`);
+  return data ? JSON.parse(data) : null;
+}
+
+// 儲存 Unit 刷題紀錄（在測驗結束時呼叫）
+function saveUnitQuizRecord(level, unit, correct, total) {
+  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+  const record = {
+    completed: true,
+    accuracy: accuracy,
+    time: Date.now()
+  };
+  localStorage.setItem(`quiz_record_${level}_${unit}`, JSON.stringify(record));
+}
+function renderUnitQuizLevelList() {
+  const container = document.getElementById('unitQuizLevelGrid');
+  if (!container) return;
+
+  const levels = [
+    { level: 1, title: 'Level 1 - 初級基礎單字', range: '1 - 1000 字', totalUnits: 10 },
+    { level: 2, title: 'Level 2 - 初中級基礎單字', range: '1001 - 2000 字', totalUnits: 10 },
+    { level: 3, title: 'Level 3 - 學測中級核心單字', range: '2001 - 3000 字', totalUnits: 10 },
+    { level: 4, title: 'Level 4 - 學測中級高頻單字', range: '3001 - 4000 字', totalUnits: 10 },
+    { level: 5, title: 'Level 5 - 學測中高級核心單字', range: '4001 - 5000 字', totalUnits: 10 },
+    { level: 6, title: 'Level 6 - 學測中高級高頻單字', range: '5001 - 6000 字', totalUnits: 10 },
+    { level: 7, title: 'Level 7 - 學測高級核心單字', range: '6001 - 7000 字', totalUnits: 10 },
+  ];
+
+  container.innerHTML = '';
+
+  levels.forEach(item => {
+    // 計算已完成的 Unit 數量
+    let completedCount = 0;
+    for (let u = 1; u <= item.totalUnits; u++) {
+      const rec = getUnitQuizRecord(item.level, u);
+      if (rec && rec.completed) completedCount++;
+    }
+    const percent = Math.round((completedCount / item.totalUnits) * 100);
+
+    const card = document.createElement('div');
+    card.className = 'menu-card';
+    card.style.cssText = 'padding: 16px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;';
+    card.onclick = () => openUnitQuizUnitList(item.level);
+
+    card.innerHTML = `
+      <div>
+        <h2 style="font-size: 1.1rem; color: #ff9500; font-weight: bold; line-height: 1.3;">${item.title}</h2>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">${item.range}</div>
+      </div>
+      
+      <!-- 刷題進度條區塊 -->
+      <div style="margin-top: 14px;">
+        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px;">
+          <span>刷題進度</span>
+          <span>${completedCount} / ${item.totalUnits} 單元 (${percent}%)</span>
+        </div>
+        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.12); border-radius: 3px; overflow: hidden;">
+          <div style="width: ${percent}%; height: 100%; background: #ff9500; border-radius: 3px; transition: width 0.3s ease;"></div>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+  /* 單元刷題紀錄儲存與讀取 */
+function getUnitQuizRecords() {
+  try { return JSON.parse(localStorage.getItem('unit_quiz_records')) || {}; }
+  catch(e) { return {}; }
+}
+
+function getUnitQuizRecord(level, unit) {
+  try {
+    const records = JSON.parse(localStorage.getItem('unit_quiz_records')) || {};
+    return records[`${level}_${unit}`] || null;
+  } catch(e) {
+    return null;
+  }
+}
+
+function saveUnitQuizRecord(level, unit, accuracy) {
+  try {
+    const records = JSON.parse(localStorage.getItem('unit_quiz_records')) || {};
+    records[`${level}_${unit}`] = { 
+      completed: true, 
+      accuracy: isNaN(accuracy) ? 0 : accuracy 
+    };
+    localStorage.setItem('unit_quiz_records', JSON.stringify(records));
+  } catch(e) {}
+}
+// 1. 全域模式變數
+let currentQuizMode = 'word';
+
+// 2. 主大廳入口事件
+function openPastExamMode() {
+  currentQuizMode = 'exam';
+  switchPage('pageQuiz'); // 切換到答題頁
+  updateQuizTabUI('exam');
+  startQuiz(); // 開始測驗
+}
+
+// 3. 頁籤切換事件
+function switchQuizTab(mode) {
+  if (currentQuizMode === mode) return;
+  currentQuizMode = mode;
+  updateQuizTabUI(mode);
+  startQuiz();
+}
+
+function updateQuizTabUI(mode) {
+  document.getElementById('tabModeWord').classList.toggle('active', mode === 'word');
+  document.getElementById('tabModeExam').classList.toggle('active', mode === 'exam');
+}
+
+// 4. 渲染題目邏輯
+function renderQuestion() {
+  // 隱藏翻譯解析區
+  document.getElementById('pastExamTransBox').classList.remove('show');
+  
+  const quizWord = document.getElementById('quizWord');
+  const phoneticWrap = document.getElementById('quizPhoneticWrap');
+
+  if (currentQuizMode === 'exam') {
+    // 取得歷屆真題資料
+    const currentQ = EXAM_QUESTIONS[currentQuizIndex];
+    
+    quizWord.textContent = currentQ.question;
+    quizWord.style.fontSize = '1.1rem'; // 題目句子較長，縮小字級
+    quizWord.style.textAlign = 'left';
+    phoneticWrap.style.display = 'none'; // 真題模式隱藏單字音標
+    
+    renderOptions(currentQ.options, currentQ.answer);
+  } else {
+    // 原本單字模式邏輯
+    quizWord.style.fontSize = '2rem';
+    quizWord.style.textAlign = 'center';
+    phoneticWrap.style.display = 'flex';
+    
+    // ...執行原本單字渲染程式碼...
+  }
+}
+
+// 5. 點擊選項與顯示解析
+function onSelectOption(selectedIndex, correctIndex) {
+  // 答題判定與計分 logic ...
+
+  // 若為真題模式，顯示全句翻譯與解析
+  if (currentQuizMode === 'exam') {
+    const currentQ = EXAM_QUESTIONS[currentQuizIndex];
+    const transTextEl = document.getElementById('pastExamTransText');
+    
+    transTextEl.innerHTML = `
+      <p><strong>翻譯：</strong>${currentQ.translation}</p>
+      <p style="margin-top: 6px; color: var(--text-secondary);">${currentQ.explanation}</p>
+    `;
+    
+    document.getElementById('pastExamTransBox').classList.add('show');
+  }
+}
+  // 在處理答題（handleQuizAnswer 或顯示解析）的位置加入：
+const transBox = document.getElementById('pastExamTransBox');
+const transText = document.getElementById('pastExamTransText');
+
+if (transText && currentQuizTarget) {
+  const sourceHTML = currentQuizTarget.source ? `<div style="color: var(--accent-yellow); font-weight: bold; margin-bottom: 6px;">📌 出處：${currentQuizTarget.source}</div>` : '';
+  const transHTML = currentQuizTarget.translation ? `<div><b>全句翻譯：</b>${currentQuizTarget.translation}</div>` : '';
+  const explHTML = currentQuizTarget.explanation ? `<div style="margin-top: 4px;"><b>重點解析：</b>${currentQuizTarget.explanation}</div>` : '';
+
+  transText.innerHTML = sourceHTML + transHTML + explHTML;
+  if (transBox) transBox.classList.add('show');
+}
+  
+</script>
+</body>
+</html>
