@@ -547,7 +547,7 @@
         </div>
         <div class="stat-card">
           <div class="title" id="farmFertilizerCount">🧪 0</div>
-          <div class="subtitle">肥料 (每日登入獲得)</div>
+          <div class="subtitle">肥料 (每日登入/副本獲得)</div>
         </div>
       </div>
 
@@ -1041,19 +1041,46 @@
   <div class="modal-overlay" id="quizResultModal">
     <div class="modal-card" style="text-align: center;">
       <h2 style="font-size: 1.5rem; color: var(--accent-yellow); margin-bottom: 8px;">🎉 測驗完成！</h2>
-      <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px;">以下是本次測驗答題統計</p>
+      <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px;">以下是本次測驗答題統計與單字統整</p>
 
       <div style="display: flex; justify-content: center; margin-bottom: 16px;">
         <canvas id="pieChartCanvas" width="160" height="160"></canvas>
       </div>
 
-      <div style="font-size: 1.1rem; color: #fff; font-weight: bold; margin-bottom: 12px;" id="resultAccuracyText"></div>
-      <div style="font-size: 0.9rem; color: var(--text-secondary);" id="resultDetailText"></div>
+      <div style="font-size: 1.1rem; color: #fff; font-weight: bold; margin-bottom: 4px;" id="resultAccuracyText"></div>
+      <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;" id="resultDetailText"></div>
 
-      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">
+      <!-- 本次刷題單字統整表單 -->
+      <div style="text-align: left; font-size: 0.9rem; font-weight: bold; color: var(--accent-yellow); margin-top: 10px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+        <span>📋 本回單字統整表</span>
+        <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: normal;">(點擊單字可查看詳情)</span>
+      </div>
+      <div id="quizSummaryList" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 12px; padding: 4px 8px; background: var(--card-inner-bg); margin-bottom: 14px;">
+        <!-- 系統自動繪製單字統整列表 -->
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
         <button class="modal-btn secondary-btn" id="reviewWrongBtn" onclick="startWrongWordsReview()">查看錯題卡片</button>
         <button class="modal-btn" onclick="finishQuizAndReturn()">退出並返回主選單</button>
       </div>
+    </div>
+  </div>
+  
+  <!-- 🆕 新增 Boss 討伐結果彈窗 (#bossResultModal) -->
+  <div class="modal-overlay" id="bossResultModal">
+    <div class="modal-card" style="text-align: center;">
+      <h2 style="font-size: 1.5rem; color: var(--accent-yellow); margin-bottom: 8px;">⚔️ 討伐結算</h2>
+      <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px;">本次 BOSS 戰單字與傷害統計</p>
+
+      <div style="text-align: left; font-size: 0.9rem; font-weight: bold; color: var(--accent-yellow); margin-top: 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+        <span>⚔️ 本次討伐單字統整表</span>
+        <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: normal;">(點擊單字可查看詳情)</span>
+      </div>
+      <div id="bossSummaryList" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 12px; padding: 4px 8px; background: var(--card-inner-bg); margin-bottom: 14px;">
+        <!-- 動態渲染 Boss 戰單字列表 -->
+      </div>
+      
+      <button class="modal-btn" onclick="finishBossBattle()">確認並返回副本大廳</button>
     </div>
   </div>
 
@@ -2242,8 +2269,59 @@
       reviewBtn.style.opacity = '1';
     }
 
-    drawPieChartCanvas('pieChartCanvas', quizCorrectCount, quizWrongCount);
+    // 動態生成「本回單字統整表單」
+    const summaryContainer = document.getElementById('quizSummaryList');
+    if (summaryContainer) {
+      summaryContainer.innerHTML = '';
+      
+      quizQueue.forEach((qItem, idx) => {
+        const item = qItem.wordObj || qItem;
+        const targetWord = item.word || item.question || `題目 ${idx + 1}`;
+        
+        // 判定該字是否答錯
+        const isWrong = quizWrongList.some(w => (w.word || w.question) === targetWord);
+        
+        const pos = item.pos || item.partOfSpeech || '';
+        const trans = item.trans || item.translation || item.meaning || item.ch || item.answerText || '';
+        
+        const row = document.createElement('div');
+        row.style.cssText = `
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 6px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          cursor: pointer;
+        `;
+        
+        row.onclick = () => {
+          // 開啟單字卡
+          openWordDetailModal(item);
+          
+          // 動態將單字卡彈窗置頂
+          const detailModal = document.getElementById('wordDetailModal');
+          if (detailModal) {
+            detailModal.style.zIndex = '2000';
+          }
+        };
+        
+        const statusTag = isWrong 
+          ? `<span style="color: var(--accent-red); font-weight: bold; font-size: 0.8rem; background: rgba(239, 68, 68, 0.15); padding: 2px 8px; border-radius: 6px;">❌ 答錯</span>`
+          : `<span style="color: var(--accent-green); font-weight: bold; font-size: 0.8rem; background: rgba(16, 185, 129, 0.15); padding: 2px 8px; border-radius: 6px;">✅ 答對</span>`;
 
+        row.innerHTML = `
+          <div style="text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">
+            <span style="font-weight: bold; color: var(--accent-yellow); font-size: 0.95rem;">${targetWord}</span>
+            <span style="color: var(--text-secondary); font-size: 0.8rem; margin-left: 6px;">${pos} ${trans}</span>
+          </div>
+          <div>${statusTag}</div>
+        `;
+        
+        summaryContainer.appendChild(row);
+      });
+    }
+
+    drawPieChartCanvas('pieChartCanvas', quizCorrectCount, quizWrongCount);
     document.getElementById('quizResultModal').classList.add('active');
   }
 
@@ -2687,8 +2765,16 @@
     } else {
       bossCombo = 0;
       playerHp = Math.max(0, playerHp - 20);
+      try {
+        if (currentBossWord && currentBossWord.word) {
+          addWrongWordLS(currentBossWord);
+        }
+      } catch (error) {
+        console.error("錯題紀錄寫入失敗:", error);
+      }
     }
 
+    
     updateBossUI();
 
     if (bossHp <= 0 || playerHp <= 0) {
@@ -2696,6 +2782,8 @@
     } else {
       renderBossQuestion();
     }
+    
+    
   }
 
   function endBossBattle() {
@@ -2851,6 +2939,7 @@
       }
     }
   });
+  
 </script>
 </body>
 </html>
