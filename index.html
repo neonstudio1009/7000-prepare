@@ -1191,6 +1191,7 @@
   /* 自動連續澆水控制 */
   let waterTimer = null;
   let waterInterval = null;
+  let bossBattleHistory = [];
   
   function stopAutoWater() {
     if (waterTimer) clearTimeout(waterTimer);
