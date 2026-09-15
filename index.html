@@ -1255,14 +1255,53 @@
       f1.position.set(0, 1.05, 0); f2.position.set(0, 1.05, 0);
       group.add(f1); group.add(f2); rotatingRings.push(f2);
     } else {
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, 1.1, 8), new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.95 }));
-      trunk.position.y = 0.55; group.add(trunk);
-      const foliage = new THREE.Mesh(new THREE.DodecahedronGeometry(0.62), new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x047857, emissiveIntensity: 0.7 }));
-      foliage.position.y = 1.25; group.add(foliage);
-      const nodeGeo = new THREE.OctahedronGeometry(0.09);
-      const nodeMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xd97706, emissiveIntensity: 0.9 });
-      [[0.38, 1.3, 0.28], [-0.38, 1.2, 0.3], [0.12, 1.55, 0.38], [-0.25, 1.45, -0.38], [0.35, 1.1, -0.32]].forEach(pos => {
-        const node = new THREE.Mesh(nodeGeo, nodeMat); node.position.set(...pos); group.add(node);
+      // 1. 幾何金屬主幹 + 霓虹邊線
+      const trunkGeo = new THREE.CylinderGeometry(0.08, 0.16, 1.1, 6);
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.95, roughness: 0.1 });
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = 0.55;
+      
+      const trunkWire = new THREE.LineSegments(
+        new THREE.EdgesGeometry(trunkGeo),
+        new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.6 })
+      );
+      trunk.add(trunkWire);
+      group.add(trunk);
+  
+      // 2. 雙層量子樹冠 (內層金色晶核 + 外層賽博青藍全息外殼)
+      const innerCoreMat = new THREE.MeshStandardMaterial({
+        color: 0xffd700, emissive: 0xd97706, emissiveIntensity: 0.9, metalness: 0.4, roughness: 0.2
+      });
+      const innerCore = new THREE.Mesh(new THREE.DodecahedronGeometry(0.48), innerCoreMat);
+      innerCore.position.y = 1.35;
+      group.add(innerCore);
+  
+      const outerHoloMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true, transparent: true, opacity: 0.75 });
+      const outerHolo = new THREE.Mesh(new THREE.IcosahedronGeometry(0.68, 1), outerHoloMat);
+      outerHolo.position.y = 1.35;
+      group.add(outerHolo);
+      rotatingRings.push(outerHolo); // 加入自動旋轉列表
+  
+      // 3. 雙軌旋轉全息環 (霓虹紫軌道)
+      const ringGeo = new THREE.TorusGeometry(0.8, 0.012, 8, 32);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0xff007f, wireframe: true });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI / 3;
+      ring.position.y = 1.35;
+      group.add(ring);
+      rotatingRings.push(ring); // 加入自動旋轉列表
+  
+      // 4. 懸浮量子數據節點 (發光青藍核)
+      const nodeMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x00a8ff, emissiveIntensity: 1.0 });
+      const nodeGeo = new THREE.OctahedronGeometry(0.08);
+      const nodePositions = [
+        [0.45, 1.35, 0.3], [-0.45, 1.25, 0.35], [0.15, 1.7, 0.45],
+        [-0.3, 1.55, -0.45], [0.4, 1.15, -0.4], [0, 0.95, 0.5]
+      ];
+      nodePositions.forEach(pos => {
+        const node = new THREE.Mesh(nodeGeo, nodeMat);
+        node.position.set(...pos);
+        group.add(node);
       });
     }
     return group;
