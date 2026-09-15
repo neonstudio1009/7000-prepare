@@ -1479,12 +1479,12 @@
         plot.exp = 0;
         refreshPlotTreeMesh(selectedPlotIndex);
       } else {
-        data.harvested += 1;
-        plot.level = 1;
-        plot.exp = 0;
-        data.water += 5;
+        // 2. 達到最後一階時停止重置，鎖定在最高階滿經驗狀態
+        plot.level = maxStage;
+        plot.exp = currentStage.maxExp;
+        stopAutoWater();
         refreshPlotTreeMesh(selectedPlotIndex);
-        alert(`⚡ 量子數據庫同步完成！地塊 #${selectedPlotIndex + 1} 培育成功，獎勵 5 數據水滴！`);
+        alert(`⚡ 量子數據庫同步完成！地塊 #${selectedPlotIndex + 1} 已達最終狀態！`);
       }
     }
   }
