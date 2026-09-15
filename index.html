@@ -1065,24 +1065,6 @@
       </div>
     </div>
   </div>
-  
-  <!-- 🆕 新增 Boss 討伐結果彈窗 (#bossResultModal) -->
-  <div class="modal-overlay" id="bossResultModal">
-    <div class="modal-card" style="text-align: center;">
-      <h2 style="font-size: 1.5rem; color: var(--accent-yellow); margin-bottom: 8px;">⚔️ 討伐結算</h2>
-      <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px;">本次 BOSS 戰單字與傷害統計</p>
-
-      <div style="text-align: left; font-size: 0.9rem; font-weight: bold; color: var(--accent-yellow); margin-top: 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
-        <span>⚔️ 本次討伐單字統整表</span>
-        <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: normal;">(點擊單字可查看詳情)</span>
-      </div>
-      <div id="bossSummaryList" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 12px; padding: 4px 8px; background: var(--card-inner-bg); margin-bottom: 14px;">
-        <!-- 動態渲染 Boss 戰單字列表 -->
-      </div>
-      
-      <button class="modal-btn" onclick="finishBossBattle()">確認並返回副本大廳</button>
-    </div>
-  </div>
 
   <div id="custom-confirm-modal" class="modal-overlay hidden">
     <div class="modal-box">
@@ -1191,7 +1173,6 @@
   /* 自動連續澆水控制 */
   let waterTimer = null;
   let waterInterval = null;
-  let bossBattleHistory = [];
   
   function stopAutoWater() {
     if (waterTimer) clearTimeout(waterTimer);
@@ -2685,7 +2666,7 @@
   function openBattleDungeonLobby() {
     showPage('pageBattleDungeonLobby');
   }
-  
+
   /* --- 1. Time Attack BOSS 討伐戰 --- */
   let bossHp = 1000;
   let maxBossHp = 1000;
@@ -2694,120 +2675,114 @@
   let bossTimer = 60;
   let bossInterval = null;
   let bossCurrentTarget = null;
-  
-  
+
   function startBossBattle() {
-      bossBattleHistory = []; // 清空上一次紀錄
-      const allWords = getAllAvailableWords();
-      if (allWords.length === 0) {
-          alert("暫無可用的單字庫！");
-          return;
+    const allWords = getAllAvailableWords();
+    if (allWords.length === 0) {
+      alert("暫無可用的單字庫！");
+      return;
+    }
+    bossHp = 1000;
+    maxBossHp = 1000;
+    playerHp = 100;
+    bossCombo = 0;
+    bossTimer = 60;
+
+    showPage('pageBossBattle');
+    updateBossUI();
+
+    if (bossInterval) clearInterval(bossInterval);
+    bossInterval = setInterval(() => {
+      bossTimer--;
+      document.getElementById('bossTimerText').innerText = `⏱️ ${bossTimer} 秒`;
+      if (bossTimer <= 0 || playerHp <= 0 || bossHp <= 0) {
+        endBossBattle();
       }
-      bossHp = 1000;
-      maxBossHp = 1000;
-      playerHp = 100;
-      bossCombo = 0;
-      bossTimer = 60;
-  
-      showPage('pageBossBattle');
-      updateBossUI();
-  
-      if (bossInterval) clearInterval(bossInterval);
-      bossInterval = setInterval(() => {
-          bossTimer--;
-          document.getElementById('bossTimerText').innerText = `⏱️ ${bossTimer} 秒`;
-          if (bossTimer <= 0 || playerHp <= 0 || bossHp <= 0) {
-              endBossBattle();
-          }
-      }, 1000);
-  
-      renderBossQuestion();
+    }, 1000);
+
+    renderBossQuestion();
   }
-  
+
   function updateBossUI() {
-      const hpPercent = Math.max(0, Math.round((bossHp / maxBossHp) * 100));
-      document.getElementById('bossHpText').innerText = `${bossHp} / ${maxBossHp}`;
-      document.getElementById('bossHpBar').style.width = `${hpPercent}%`;
-      document.getElementById('playerHpText').innerText = `❤️ 玩家 HP: ${playerHp}/100`;
-      document.getElementById('bossComboBadge').innerText = `🔥 Combo x${bossCombo}`;
+    const hpPercent = Math.max(0, Math.round((bossHp / maxBossHp) * 100));
+    document.getElementById('bossHpText').innerText = `${bossHp} / ${maxBossHp}`;
+    document.getElementById('bossHpBar').style.width = `${hpPercent}%`;
+    document.getElementById('playerHpText').innerText = `❤️ 玩家 HP: ${playerHp}/100`;
+    document.getElementById('bossComboBadge').innerText = `🔥 Combo x${bossCombo}`;
   }
-  
+
   function renderBossQuestion() {
-      const allWords = getAllAvailableWords();
-      bossCurrentTarget = allWords[Math.floor(Math.random() * allWords.length)];
-  
-      document.getElementById('bossQuizWord').innerText = bossCurrentTarget.word;
-  
-      const distractors = allWords.filter(w => w.word !== bossCurrentTarget.word).sort(() => 0.5 - Math.random()).slice(0, 3);
-      const targetTrans = (bossCurrentTarget.pos || '') + " " + (bossCurrentTarget.trans || bossCurrentTarget.meaning || bossCurrentTarget.translation || '');
-  
-      let choices = distractors.map(d => ({ isCorrect: false, text: (d.pos || '') + " " + (d.trans || d.meaning || d.translation || '') }));
-      choices.push({ isCorrect: true, text: targetTrans });
-      choices.sort(() => 0.5 - Math.random());
-  
-      const container = document.getElementById('bossQuizOptions');
-      container.innerHTML = '';
-  
-      choices.forEach(c => {
-          const btn = document.createElement('button');
-          btn.className = 'quiz-opt-btn';
-          btn.innerText = c.text;
-          btn.onclick = () => handleBossAnswer(c.isCorrect);
-          container.appendChild(btn);
-      });
-  
-      speakText(bossCurrentTarget.word);
+    const allWords = getAllAvailableWords();
+    bossCurrentTarget = allWords[Math.floor(Math.random() * allWords.length)];
+
+    document.getElementById('bossQuizWord').innerText = bossCurrentTarget.word;
+
+    const distractors = allWords.filter(w => w.word !== bossCurrentTarget.word).sort(() => 0.5 - Math.random()).slice(0, 3);
+    const targetTrans = (bossCurrentTarget.pos || '') + " " + (bossCurrentTarget.trans || bossCurrentTarget.meaning || bossCurrentTarget.translation || '');
+
+    let choices = distractors.map(d => ({ isCorrect: false, text: (d.pos || '') + " " + (d.trans || d.meaning || d.translation || '') }));
+    choices.push({ isCorrect: true, text: targetTrans });
+    choices.sort(() => 0.5 - Math.random());
+
+    const container = document.getElementById('bossQuizOptions');
+    container.innerHTML = '';
+
+    choices.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'quiz-opt-btn';
+      btn.innerText = c.text;
+      btn.onclick = () => handleBossAnswer(c.isCorrect);
+      container.appendChild(btn);
+    });
+
+    speakText(bossCurrentTarget.word);
   }
-  
+
   function handleBossAnswer(isCorrect) {
-      // 🆕 1. 寫入答題紀錄到 bossBattleHistory
-      bossBattleHistory.push({
-          wordObj: bossCurrentTarget,
-          isCorrect: isCorrect
-      });
-  
-      if (isCorrect) {
-          bossCombo++;
-          const dmg = 80 + bossCombo * 20;
-          bossHp = Math.max(0, bossHp - dmg);
-          addFarmResource(2, 0);
-      } else {
-          bossCombo = 0;
-          playerHp = Math.max(0, playerHp - 20);
-          try {
-              // 修正：原程式碼變數名修正為 bossCurrentTarget
-              if (bossCurrentTarget && bossCurrentTarget.word) {
-                  addWrongWordLS(bossCurrentTarget);
-              }
-          } catch (error) {
-              console.error("錯題紀錄寫入失敗:", error);
-          }
+    if (isCorrect) {
+      bossCombo++;
+      const dmg = 80 + bossCombo * 20;
+      bossHp = Math.max(0, bossHp - dmg);
+      addFarmResource(2, 0);
+    } else {
+      bossCombo = 0;
+      playerHp = Math.max(0, playerHp - 20);
+      try {
+        if (currentBossWord && currentBossWord.word) {
+          addWrongWordLS(currentBossWord);
+        }
+      } catch (error) {
+        console.error("錯題紀錄寫入失敗:", error);
       }
-  
-      updateBossUI();
-  
-      if (bossHp <= 0 || playerHp <= 0) {
-          endBossBattle();
-      } else {
-          renderBossQuestion();
-      }
+    }
+
+    
+    updateBossUI();
+
+    if (bossHp <= 0 || playerHp <= 0) {
+      endBossBattle();
+    } else {
+      renderBossQuestion();
+    }
+    
+    
   }
-  
+
   function endBossBattle() {
-      if (bossInterval) clearInterval(bossInterval);
-      if (bossHp <= 0) {
-          addFarmResource(10, 2);
-          showCustomModal("🎉 討伐成功！你擊敗了詞彙巨龍！獲得額外獎勵 10 滴水滴 + 2 罐肥料！", () => showPage('pageBattleDungeonLobby'));
-      } else {
-          showCustomModal("☠️ 討伐失敗！挑戰時間結束或玩家體力耗盡。", () => showPage('pageBattleDungeonLobby'));
-      }
+    if (bossInterval) clearInterval(bossInterval);
+    if (bossHp <= 0) {
+      addFarmResource(10, 2);
+      showCustomModal("🎉 討伐成功！你擊敗了詞彙巨龍！獲得額外獎勵 10 滴水滴 + 2 罐肥料！", () => showPage('pageBattleDungeonLobby'));
+    } else {
+      showCustomModal("☠️ 討伐失敗！挑戰時間結束或玩家體力耗盡。", () => showPage('pageBattleDungeonLobby'));
+    }
   }
-  
+
   async function confirmExitBoss() {
-      if (await customConfirm("確定要離開 BOSS 討伐戰嗎？")) {
-          if (bossInterval) clearInterval(bossInterval);
-          showPage('pageBattleDungeonLobby');
-      }
+    if (await customConfirm("確定要離開 BOSS 討伐戰嗎？")) {
+      if (bossInterval) clearInterval(bossInterval);
+      showPage('pageBattleDungeonLobby');
+    }
   }
 
   /* --- 2. 字母拼字地下城 --- */
