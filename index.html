@@ -1420,15 +1420,23 @@
   
   function waterSelectedTree() {
     let data = getFarmData();
-    // 1. 檢查是否已達到最後一階且經驗值已滿
+    let plot = data.plots[selectedPlotIndex]; // 1. 先宣告 plot
+    const maxStage = TREE_STAGES.length; // 2. 先計算 maxStage 與 maxExp
+    const maxExp = TREE_STAGES[maxStage - 1].maxExp;
+  
+    // 3. 再進行條件判斷
     if (plot.level >= maxStage && plot.exp >= maxExp) {
       stopAutoWater();
       alert("該地塊已培育至最高階段，無法再繼續澆水！");
       return false;
     }
-    if (data.water <= 0) { stopAutoWater(); alert("數據水滴不足！去背單字或刷題即可獲取水滴。"); return false; }
+    if (data.water <= 0) { 
+      stopAutoWater(); 
+      alert("數據水滴不足！去背單字或刷題即可獲取水滴。"); 
+      return false; 
+    }
+  
     data.water -= 1;
-    let plot = data.plots[selectedPlotIndex];
     plot.exp += 10;
     spawn3DParticles('water', selectedPlotIndex);
     checkPlotLevelUp(data, plot);
@@ -1441,8 +1449,10 @@
   function stopAutoWater() {
     if (waterTimer) clearTimeout(waterTimer);
     if (waterInterval) clearInterval(waterInterval);
-    waterTimer = null; waterInterval = null;
+    waterTimer = null; 
+    waterInterval = null;
   }
+  
   function startAutoWater(e) {
     if (e && e.cancelable) e.preventDefault();
     stopAutoWater();
@@ -1456,14 +1466,20 @@
   
   function fertilizeSelectedTree() {
     let data = getFarmData();
-    // 1. 檢查是否已達到最後一階且經驗值已滿
+    let plot = data.plots[selectedPlotIndex]; // 1. 先宣告 plot
+    const maxStage = TREE_STAGES.length; // 2. 先計算 maxStage 與 maxExp
+    const maxExp = TREE_STAGES[maxStage - 1].maxExp;
+  
     if (plot.level >= maxStage && plot.exp >= maxExp) {
       alert("該地塊已培育至最高階段，無法再繼續催化！");
       return;
     }
-    if (data.fertilizer <= 0) { alert("量子催化劑不足！每日登入即可獲得！"); return; }
+    if (data.fertilizer <= 0) { 
+      alert("量子催化劑不足！每日登入即可獲得！"); 
+      return; 
+    }
+  
     data.fertilizer -= 1;
-    let plot = data.plots[selectedPlotIndex];
     plot.exp += 30;
     spawn3DParticles('fertilizer', selectedPlotIndex);
     checkPlotLevelUp(data, plot);
@@ -1472,14 +1488,15 @@
   }
   
   function checkPlotLevelUp(data, plot) {
-    const currentStage = TREE_STAGES[Math.min(plot.level - 1, TREE_STAGES.length - 1)];
+    const maxStage = TREE_STAGES.length;
+    const currentStage = TREE_STAGES[Math.min(plot.level - 1, maxStage - 1)];
+  
     if (plot.exp >= currentStage.maxExp) {
-      if (plot.level < TREE_STAGES.length) {
+      if (plot.level < maxStage) {
         plot.level += 1;
         plot.exp = 0;
         refreshPlotTreeMesh(selectedPlotIndex);
       } else {
-        // 2. 達到最後一階時停止重置，鎖定在最高階滿經驗狀態
         plot.level = maxStage;
         plot.exp = currentStage.maxExp;
         stopAutoWater();
