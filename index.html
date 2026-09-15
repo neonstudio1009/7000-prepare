@@ -1420,6 +1420,12 @@
   
   function waterSelectedTree() {
     let data = getFarmData();
+    // 1. 檢查是否已達到最後一階且經驗值已滿
+    if (plot.level >= maxStage && plot.exp >= maxExp) {
+      stopAutoWater();
+      alert("該地塊已培育至最高階段，無法再繼續澆水！");
+      return false;
+    }
     if (data.water <= 0) { stopAutoWater(); alert("數據水滴不足！去背單字或刷題即可獲取水滴。"); return false; }
     data.water -= 1;
     let plot = data.plots[selectedPlotIndex];
@@ -1450,6 +1456,11 @@
   
   function fertilizeSelectedTree() {
     let data = getFarmData();
+    // 1. 檢查是否已達到最後一階且經驗值已滿
+    if (plot.level >= maxStage && plot.exp >= maxExp) {
+      alert("該地塊已培育至最高階段，無法再繼續催化！");
+      return;
+    }
     if (data.fertilizer <= 0) { alert("量子催化劑不足！每日登入即可獲得！"); return; }
     data.fertilizer -= 1;
     let plot = data.plots[selectedPlotIndex];
