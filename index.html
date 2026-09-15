@@ -1108,146 +1108,348 @@
   };
 
   /* 植樹場系統 LocalStorage 資料操作 */
+  /* 3D 賽博量子植樹場核心邏輯 */
+  const TREE_STAGES = [
+    { name: "PHASE 1: QUANTUM CORE", title: "量子發芽", maxExp: 50 },
+    { name: "PHASE 2: HOLO-SPROUT", title: "全息嫩芽", maxExp: 120 },
+    { name: "PHASE 3: CYBER TREE", title: "結晶鋼樹", maxExp: 220 },
+    { name: "PHASE 4: BIO-MATRIX", title: "量子矩陣樹", maxExp: 350 },
+    { name: "PHASE 5: DATA HARVEST", title: "豐收數據樹", maxExp: 500 }
+  ];
+  
   function getFarmData() {
-    try {
-      return JSON.parse(localStorage.getItem('farm_data')) || { water: 10, fertilizer: 2, exp: 0, level: 1, harvested: 0 };
-    } catch(e) {
-      return { water: 10, fertilizer: 2, exp: 0, level: 1, harvested: 0 };
+    let data;
+    try { data = JSON.parse(localStorage.getItem('farm_data')); } catch(e) {}
+    if (!data || typeof data !== 'object') {
+      data = { water: 25, fertilizer: 5, harvested: 0, plots: [] };
     }
+    if (!data.plots || !Array.isArray(data.plots) || data.plots.length < 25) {
+      data.plots = [];
+      for (let i = 0; i < 25; i++) data.plots.push({ exp: 0, level: 1 });
+    }
+    return data;
   }
-
-  function saveFarmData(data) {
-    localStorage.setItem('farm_data', JSON.stringify(data));
-  }
-
+  
+  function saveFarmData(data) { localStorage.setItem('farm_data', JSON.stringify(data)); }
+  
   function addFarmResource(waterCount, fertilizerCount) {
     let data = getFarmData();
     data.water = (data.water || 0) + waterCount;
     data.fertilizer = (data.fertilizer || 0) + fertilizerCount;
     saveFarmData(data);
   }
-
-  const TREE_STAGES = [
-    { name: "階段 1/5：種子發芽", title: "知識幼苗", emoji: "🌱", maxExp: 50 },
-    { name: "階段 2/5：持續灌溉", title: "茁壯嫩芽", emoji: "🌿", maxExp: 120 },
-    { name: "階段 3/5：穩固根基", title: "小樹苗", emoji: "🪴", maxExp: 220 },
-    { name: "階段 4/5：茂盛生長", title: "參天大樹", emoji: "🌳", maxExp: 350 },
-    { name: "階段 5/5：結實果樹", title: "豐收果樹", emoji: "🍎", maxExp: 500 }
-  ];
-
+  
+  /* 3D WebGL 全息引擎變數 */
+  let selectedPlotIndex = 0;
+  let scene, camera, renderer, controls;
+  let plotMeshes = [];
+  let treeGroupMeshes = [];
+  let particleList = [];
+  let rotatingRings = [];
+  let targetCameraPos = null, targetLookAt = null;
+  
+  function init3DFarmEngine() {
+    const container = document.getElementById('canvas3DHolder');
+    if (!container || renderer) return;
+  
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x030712);
+    scene.fog = new THREE.FogExp2(0x030712, 0.04);
+  
+    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position.set(0, 8, 9);
+  
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    container.appendChild(renderer.domElement);
+  
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 - 0.05;
+  
+    const ambientLight = new THREE.AmbientLight(0x00f0ff, 0.4);
+    scene.add(ambientLight);
+  
+    const mainDirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    mainDirLight.position.set(5, 12, 8);
+    scene.add(mainDirLight);
+  
+    const cyanLight = new THREE.PointLight(0x00f0ff, 2, 12);
+    cyanLight.position.set(-5, 4, -5);
+    scene.add(cyanLight);
+  
+    const magentaLight = new THREE.PointLight(0xff007f, 2, 12);
+    magentaLight.position.set(5, 4, 5);
+    scene.add(magentaLight);
+  
+    createSciFiGrid();
+    setupRaycaster(container);
+    animate3D();
+  }
+  
+  function createSciFiGrid() {
+    const spacing = 1.3;
+    const offset = (5 - 1) * spacing / 2.0;
+    const farmData = getFarmData();
+  
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        const index = r * 5 + c;
+        const x = c * spacing - offset;
+        const z = r * spacing - offset;
+  
+        const podGroup = new THREE.Group();
+        podGroup.position.set(x, 0, z);
+  
+        const baseGeo = new THREE.CylinderGeometry(0.58, 0.65, 0.2, 6);
+        const baseMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.85, roughness: 0.2 });
+        const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+        baseMesh.position.y = -0.1;
+        podGroup.add(baseMesh);
+  
+        const edgesGeo = new THREE.EdgesGeometry(baseGeo);
+        const edgesMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, linewidth: 2 });
+        const wireframe = new THREE.LineSegments(edgesGeo, edgesMat);
+        baseMesh.add(wireframe);
+  
+        baseMesh.userData = { plotIndex: index, wireframe: wireframe };
+        scene.add(podGroup);
+        plotMeshes[index] = baseMesh;
+  
+        const plotInfo = farmData.plots[index] || { level: 1 };
+        const treeGroup = createHighTechTreeMesh(plotInfo.level);
+        treeGroup.position.set(x, 0.02, z);
+        scene.add(treeGroup);
+        treeGroupMeshes[index] = treeGroup;
+      }
+    }
+  }
+  
+  function createHighTechTreeMesh(level) {
+    const group = new THREE.Group();
+    if (level === 1) {
+      const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.12), new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x00a8ff, emissiveIntensity: 0.8 }));
+      core.position.y = 0.25;
+      group.add(core);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.015, 8, 24), new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true }));
+      ring.rotation.x = Math.PI / 2; ring.position.y = 0.25;
+      group.add(ring); rotatingRings.push(ring);
+    } else if (level === 2) {
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.35, 8), new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.9 }));
+      stem.position.y = 0.175; group.add(stem);
+      const leaf = new THREE.Mesh(new THREE.TetrahedronGeometry(0.16), new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x059669, emissiveIntensity: 0.6, transparent: true, opacity: 0.85 }));
+      leaf.position.set(0.08, 0.32, 0); leaf.scale.set(0.6, 1.2, 0.4); group.add(leaf);
+    } else if (level === 3) {
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.07, 0.65, 6), new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.8 }));
+      trunk.position.y = 0.325; group.add(trunk);
+      const crown = new THREE.Mesh(new THREE.DodecahedronGeometry(0.32), new THREE.MeshStandardMaterial({ color: 0xc084fc, emissive: 0x7e22ce, emissiveIntensity: 0.5 }));
+      crown.position.y = 0.72; group.add(crown);
+    } else if (level === 4) {
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.12, 0.9, 8), new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9 }));
+      trunk.position.y = 0.45; group.add(trunk);
+      const f1 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.48, 0), new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x0284c7, emissiveIntensity: 0.6 }));
+      const f2 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 1), new THREE.MeshBasicMaterial({ color: 0xff007f, wireframe: true }));
+      f1.position.set(0, 1.05, 0); f2.position.set(0, 1.05, 0);
+      group.add(f1); group.add(f2); rotatingRings.push(f2);
+    } else {
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, 1.1, 8), new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.95 }));
+      trunk.position.y = 0.55; group.add(trunk);
+      const foliage = new THREE.Mesh(new THREE.DodecahedronGeometry(0.62), new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x047857, emissiveIntensity: 0.7 }));
+      foliage.position.y = 1.25; group.add(foliage);
+      const nodeGeo = new THREE.OctahedronGeometry(0.09);
+      const nodeMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xd97706, emissiveIntensity: 0.9 });
+      [[0.38, 1.3, 0.28], [-0.38, 1.2, 0.3], [0.12, 1.55, 0.38], [-0.25, 1.45, -0.38], [0.35, 1.1, -0.32]].forEach(pos => {
+        const node = new THREE.Mesh(nodeGeo, nodeMat); node.position.set(...pos); group.add(node);
+      });
+    }
+    return group;
+  }
+  
+  function setupRaycaster(container) {
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let pointerDownPos = { x: 0, y: 0 };
+  
+    container.addEventListener('pointerdown', (e) => { pointerDownPos = { x: e.clientX, y: e.clientY }; });
+    container.addEventListener('pointerup', (e) => {
+      if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) > 6) return;
+      const rect = container.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(plotMeshes);
+      if (intersects.length > 0) selectPlot(intersects[0].object.userData.plotIndex, true);
+    });
+  }
+  
+  function selectPlot(index, zoomIn = true) {
+    selectedPlotIndex = index;
+    updatePlotHighlight();
+    updateFarmUI();
+    const targetMesh = plotMeshes[index];
+    if (!targetMesh) return;
+    const targetPos = targetMesh.parent.position;
+    if (zoomIn) {
+      targetLookAt = new THREE.Vector3(targetPos.x, 0.5, targetPos.z);
+      targetCameraPos = new THREE.Vector3(targetPos.x, targetPos.y + 2.4, targetPos.z + 2.8);
+      document.getElementById('btnResetCamera').style.display = 'block';
+    }
+  }
+  
+  function reset3DCamera() {
+    targetLookAt = new THREE.Vector3(0, 0, 0);
+    targetCameraPos = new THREE.Vector3(0, 8, 9);
+    document.getElementById('btnResetCamera').style.display = 'none';
+  }
+  
+  function updatePlotHighlight() {
+    plotMeshes.forEach((mesh, idx) => {
+      mesh.userData.wireframe.material.color.setHex((idx === selectedPlotIndex) ? 0xff007f : 0x00f0ff);
+    });
+  }
+  
+  function refreshPlotTreeMesh(index) {
+    const farmData = getFarmData();
+    const plotInfo = farmData.plots[index];
+    if (!plotInfo) return;
+    if (treeGroupMeshes[index]) scene.remove(treeGroupMeshes[index]);
+    const spacing = 1.3, offset = (5 - 1) * spacing / 2.0;
+    const x = (index % 5) * spacing - offset;
+    const z = Math.floor(index / 5) * spacing - offset;
+    const newTree = createHighTechTreeMesh(plotInfo.level);
+    newTree.position.set(x, 0.02, z);
+    scene.add(newTree);
+    treeGroupMeshes[index] = newTree;
+  }
+  
+  function spawn3DParticles(type, index) {
+    const spacing = 1.3, offset = (5 - 1) * spacing / 2.0;
+    const originX = (index % 5) * spacing - offset;
+    const originZ = Math.floor(index / 5) * spacing - offset;
+    const pMat = new THREE.MeshBasicMaterial({ color: (type === 'water') ? 0x00f0ff : 0xff007f, wireframe: true });
+    const pGeo = new THREE.BoxGeometry(0.04, 0.04, 0.04);
+    for (let i = 0; i < 20; i++) {
+      const p = new THREE.Mesh(pGeo, pMat);
+      p.position.set(originX + (Math.random() - 0.5) * 0.5, 0.1 + Math.random() * 0.2, originZ + (Math.random() - 0.5) * 0.5);
+      p.userData = { vy: 0.03 + Math.random() * 0.03, life: 35 };
+      scene.add(p); particleList.push(p);
+    }
+  }
+  
+  function animate3D() {
+    requestAnimationFrame(animate3D);
+    if (targetCameraPos && targetLookAt) {
+      camera.position.lerp(targetCameraPos, 0.08);
+      controls.target.lerp(targetLookAt, 0.08);
+      if (camera.position.distanceTo(targetCameraPos) < 0.02) { targetCameraPos = null; targetLookAt = null; }
+    }
+    rotatingRings.forEach(r => { r.rotation.z += 0.02; });
+    for (let i = particleList.length - 1; i >= 0; i--) {
+      const p = particleList[i];
+      p.position.y += p.userData.vy;
+      p.userData.life -= 1;
+      if (p.userData.life <= 0) { scene.remove(p); particleList.splice(i, 1); }
+    }
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  
   function updateFarmUI() {
     const data = getFarmData();
-    const currentStage = TREE_STAGES[Math.min(data.level - 1, TREE_STAGES.length - 1)];
-
+    const plotInfo = data.plots[selectedPlotIndex] || { exp: 0, level: 1 };
+    const currentStage = TREE_STAGES[Math.min(plotInfo.level - 1, TREE_STAGES.length - 1)];
+  
     const waterEl = document.getElementById('farmWaterCount');
     const fertEl = document.getElementById('farmFertilizerCount');
+    const plotTitleEl = document.getElementById('selectedPlotTitle');
     const stageNameEl = document.getElementById('treeStageName');
-    const emojiEl = document.getElementById('treeEmoji');
-    const titleEl = document.getElementById('treeTitle');
     const expTextEl = document.getElementById('treeExpText');
     const expBarEl = document.getElementById('treeExpBar');
-    const harvestEl = document.getElementById('farmHarvestCount');
-
+  
     if (waterEl) waterEl.innerText = `💧 ${data.water}`;
     if (fertEl) fertEl.innerText = `🧪 ${data.fertilizer}`;
+    if (plotTitleEl) plotTitleEl.innerText = `POD #${selectedPlotIndex + 1} [ACTIVE]`;
     if (stageNameEl) stageNameEl.innerText = currentStage.name;
-    if (emojiEl) emojiEl.innerText = currentStage.emoji;
-    if (titleEl) titleEl.innerText = currentStage.title;
-
-    const percent = Math.min(100, Math.round((data.exp / currentStage.maxExp) * 100));
-    if (expTextEl) expTextEl.innerText = `${data.exp} / ${currentStage.maxExp}`;
+  
+    const percent = Math.min(100, Math.round((plotInfo.exp / currentStage.maxExp) * 100));
+    if (expTextEl) expTextEl.innerText = `${plotInfo.exp} / ${currentStage.maxExp}`;
     if (expBarEl) expBarEl.style.width = `${percent}%`;
-    if (harvestEl) harvestEl.innerText = `🌳 ${data.harvested} 棵`;
   }
-
-  function waterTree() {
+  
+  function waterSelectedTree() {
     let data = getFarmData();
-    if (data.water <= 0) {
-      alert("水滴不足！去多背單字或刷題答對題目即可獲取水滴喔！");
-      stopAutoWater(); // 水滴不足時停止長按連發
-      return false;
-    }
+    if (data.water <= 0) { stopAutoWater(); alert("數據水滴不足！去背單字或刷題即可獲取水滴。"); return false; }
     data.water -= 1;
-    data.exp += 10;
-    checkTreeLevelUp(data);
+    let plot = data.plots[selectedPlotIndex];
+    plot.exp += 10;
+    spawn3DParticles('water', selectedPlotIndex);
+    checkPlotLevelUp(data, plot);
     saveFarmData(data);
     updateFarmUI();
     return true;
   }
-  /* 自動連續澆水控制 */
-  let waterTimer = null;
-  let waterInterval = null;
   
+  let waterTimer = null, waterInterval = null;
   function stopAutoWater() {
     if (waterTimer) clearTimeout(waterTimer);
     if (waterInterval) clearInterval(waterInterval);
-    waterTimer = null;
-    waterInterval = null;
+    waterTimer = null; waterInterval = null;
   }
-  
   function startAutoWater(e) {
-    if (e && e.cancelable) e.preventDefault(); // 防止手機長按選取文字或跳出選單
-  
-    stopAutoWater(); // 確保舊計時器已清除
-  
-    // 按下的瞬間先澆水一次
-    const success = waterTree();
-    if (!success) return;
-  
-    // 按住超過 300ms 後開始連續自動澆水（每 150ms 扣 1 滴）
+    if (e && e.cancelable) e.preventDefault();
+    stopAutoWater();
+    if (!waterSelectedTree()) return;
     waterTimer = setTimeout(() => {
       waterInterval = setInterval(() => {
-        const ok = waterTree();
-        if (!ok) stopAutoWater(); // 若水滴用完則自動停止
+        if (!waterSelectedTree()) stopAutoWater();
       }, 150);
     }, 300);
   }
   
-  // 綁定澆水按鈕的滑鼠與觸控事件
-  document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('btnWaterTree');
-    if (!btn) return;
-  
-    // 電腦滑鼠事件
-    btn.addEventListener('mousedown', startAutoWater);
-    btn.addEventListener('mouseup', stopAutoWater);
-    btn.addEventListener('mouseleave', stopAutoWater);
-  
-    // 手機觸控事件
-    btn.addEventListener('touchstart', startAutoWater, { passive: false });
-    btn.addEventListener('touchend', stopAutoWater);
-    btn.addEventListener('touchcancel', stopAutoWater);
-  });
-
-  function fertilizeTree() {
+  function fertilizeSelectedTree() {
     let data = getFarmData();
-    if (data.fertilizer <= 0) {
-      alert("肥料不足！每日連續登入即可領取更多肥料！");
-      return;
-    }
+    if (data.fertilizer <= 0) { alert("量子催化劑不足！每日登入即可獲得！"); return; }
     data.fertilizer -= 1;
-    data.exp += 30;
-    checkTreeLevelUp(data);
+    let plot = data.plots[selectedPlotIndex];
+    plot.exp += 30;
+    spawn3DParticles('fertilizer', selectedPlotIndex);
+    checkPlotLevelUp(data, plot);
     saveFarmData(data);
     updateFarmUI();
   }
-
-  function checkTreeLevelUp(data) {
-    const currentStage = TREE_STAGES[Math.min(data.level - 1, TREE_STAGES.length - 1)];
-    if (data.exp >= currentStage.maxExp) {
-      if (data.level < TREE_STAGES.length) {
-        data.level += 1;
-        data.exp = 0;
-        alert(`🎉 恭喜！你的小樹升級成「${TREE_STAGES[data.level - 1].title}」了！`);
+  
+  function checkPlotLevelUp(data, plot) {
+    const currentStage = TREE_STAGES[Math.min(plot.level - 1, TREE_STAGES.length - 1)];
+    if (plot.exp >= currentStage.maxExp) {
+      if (plot.level < TREE_STAGES.length) {
+        plot.level += 1;
+        plot.exp = 0;
+        refreshPlotTreeMesh(selectedPlotIndex);
       } else {
         data.harvested += 1;
-        data.level = 1;
-        data.exp = 0;
+        plot.level = 1;
+        plot.exp = 0;
         data.water += 5;
-        alert("🎉 太棒了！樹木培育完成了！已收入你的森林庫，並獲得額外獎勵 5 滴水！");
+        refreshPlotTreeMesh(selectedPlotIndex);
+        alert(`⚡ 量子數據庫同步完成！地塊 #${selectedPlotIndex + 1} 培育成功，獎勵 5 數據水滴！`);
       }
     }
   }
+  
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('btnWaterTree');
+    if (btn) {
+      btn.addEventListener('mousedown', startAutoWater);
+      btn.addEventListener('mouseup', stopAutoWater);
+      btn.addEventListener('mouseleave', stopAutoWater);
+      btn.addEventListener('touchstart', startAutoWater, { passive: false });
+      btn.addEventListener('touchend', stopAutoWater);
+      btn.addEventListener('touchcancel', stopAutoWater);
+    }
+  });
 
   /* LocalStorage 連續登入與進度維護功能 */
   function checkAndUpdateLoginStreak() {
