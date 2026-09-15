@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+  <!-- 3D 賽博量子植樹場所需之 Three.js 引擎與軌道控制庫 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>速讀單字系統</title>
@@ -143,42 +146,37 @@
     .progress-label { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 2px; }
 
     /* 植樹場樣式 */
+    /* 3D 賽博量子植樹場樣式 */
     .farm-tree-stage {
       width: 100%;
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 20px;
-      padding: 24px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      background: rgba(17, 24, 39, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 16px;
+      padding: 16px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
     }
-    .tree-icon-large {
-      font-size: 5.5rem;
-      margin: 16px 0;
-      transition: transform 0.3s ease;
-    }
-    .farm-actions {
-      display: flex;
-      gap: 12px;
-      width: 100%;
-    }
+    .farm-actions { display: flex; gap: 12px; width: 100%; margin-top: 12px; }
     .farm-btn {
-      flex: 1;
-      padding: 14px;
-      border-radius: 14px;
-      border: none;
-      font-size: 1rem;
-      font-weight: bold;
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
+      flex: 1; padding: 12px; border-radius: 10px; border: none;
+      font-size: 0.9rem; font-weight: bold; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      text-transform: uppercase; transition: all 0.2s ease;
     }
-    .farm-btn-water { background: #1e3a8a; color: #93c5fd; border: 1px solid #2563eb; }
-    .farm-btn-fertilizer { background: #365314; color: #bef264; border: 1px solid #65a30d; }
+    .farm-btn-water { 
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); 
+      color: #e0f2fe; border: 1px solid #38bdf8; 
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.3); 
+    }
+    .farm-btn-fertilizer { 
+      background: linear-gradient(135deg, #7e22ce 0%, #6b21a8 100%); 
+      color: #fae8ff; border: 1px solid #c084fc; 
+      box-shadow: 0 0 10px rgba(192, 132, 252, 0.3); 
+    }
+    .grid-progress-container { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; width: 100%; }
+    .progress-bar-wrap { width: 100%; height: 8px; background-color: rgba(255, 255, 255, 0.1); border-radius: 4px; overflow: hidden; }
+    .progress-bar-fill.cyan { background: linear-gradient(90deg, #00f0ff, #7000ff); box-shadow: 0 0 8px #00f0ff; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: #9ca3af; }
 
     .word-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
     .word-item { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
