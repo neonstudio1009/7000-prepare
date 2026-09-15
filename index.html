@@ -1648,16 +1648,16 @@
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const target = document.getElementById(pageId);
     if (target) target.classList.add('active');
-
+  
     // 當非「返回觸發」且當前狀態不同時，寫入瀏覽歷史
     if (!isBack && history.state?.pageId !== pageId) {
       history.pushState({ pageId: pageId }, '', '#' + pageId);
     }
-
+  
     const bottomNav = document.getElementById('mainBottomNav');
     const mainBtn = document.getElementById('navMainBtn');
     const farmBtn = document.getElementById('navFarmBtn');
-
+  
     if (bottomNav) {
       if (pageId === 'pageLobby' || pageId === 'pageTreeFarm') {
         bottomNav.style.display = 'flex';
@@ -1674,9 +1674,17 @@
         bottomNav.style.display = 'none';
       }
     }
-
+  
     if (pageId === 'pageLobby') updateLobbyStats();
-    if (pageId === 'pageTreeFarm') updateFarmUI();
+  
+    // 進入 3D 植樹場時，更新 UI 並啟動 Three.js 賽博引擎
+    if (pageId === 'pageTreeFarm') {
+      updateFarmUI();
+      setTimeout(() => {
+        init3DFarmEngine();
+        selectPlot(selectedPlotIndex, false);
+      }, 50);
+    }
   }
 
   function switchMainTab(tab) {
