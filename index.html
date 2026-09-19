@@ -1045,6 +1045,48 @@
     </nav>
   </div>
 
+  <!-- 16-A. 無盡刷題 - 撤離確認彈窗 -->
+  <div id="endlessConfirmModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 9999; justify-content: center; align-items: center;">
+    <div class="modal-card" style="background: #18181b; border: 1px solid #3f3f46; border-radius: 16px; padding: 24px; width: 90%; max-width: 380px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+      <div style="font-size: 2.5rem; margin-bottom: 8px;">🚪</div>
+      <h3 style="font-size: 1.2rem; font-weight: bold; color: #fff; margin-bottom: 8px;">確定撤離地下城？</h3>
+      <p style="font-size: 0.85rem; color: #a1a1aa; margin-bottom: 20px; line-height: 1.4;">現在撤離將進行成績結算，並領取本次獲得的數據水滴。</p>
+      <div style="display: flex; gap: 12px;">
+        <button onclick="closeEndlessConfirmModal()" style="flex: 1; padding: 12px; border-radius: 12px; border: 1px solid #3f3f46; background: #27272a; color: #e4e4e7; font-weight: bold; cursor: pointer;">繼續刷題</button>
+        <button onclick="executeEndlessSettlement()" style="flex: 1; padding: 12px; border-radius: 12px; border: none; background: #ef4444; color: #fff; font-weight: bold; cursor: pointer;">確定結算</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 16-B. 無盡刷題 - 比照7000單字大挑戰風格的結算彈窗 -->
+  <div id="endlessResultModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;">
+    <div class="modal-card" style="background: #121214; border: 1px solid #27272a; border-radius: 20px; padding: 20px; width: 100%; max-width: 440px; max-height: 90vh; display: flex; flex-direction: column; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8); box-sizing: border-box;">
+      
+      <!-- 頂部標題與說明 -->
+      <div style="font-size: 1.3rem; font-weight: bold; color: #fff; margin-bottom: 4px;">🎉 測驗完成！</div>
+      <div style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 16px;">以下是本次測驗答題統計與單字統整</div>
+
+      <!-- 正確率圓形徽章與數據統計 -->
+      <div style="background: #18181b; border-radius: 16px; padding: 16px; margin-bottom: 16px; border: 1px solid #27272a;">
+        <div id="endlessResultAccBadge" style="width: 80px; height: 80px; border-radius: 50%; background: #10b981; margin: 0 auto 12px auto; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #fff; font-weight: bold;">100%</div>
+        <div id="endlessResultAccText" style="font-size: 1.2rem; font-weight: bold; color: #fff; margin-bottom: 6px;">正確率：100%</div>
+        <div id="endlessResultStatsText" style="font-size: 0.82rem; color: #a1a1aa; line-height: 1.4;">總題數：0 題 | 答對：0 題 | 答錯：0 題</div>
+        <div id="endlessResultWaterText" style="font-size: 0.85rem; color: #00f0ff; font-weight: bold; margin-top: 6px;">💧 獲得數據水滴：+0</div>
+      </div>
+
+      <!-- 本回單字統整表標頭 -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
+        <span style="font-weight: bold; color: #f59e0b; font-size: 0.95rem; display: flex; align-items: center; gap: 4px;">📄 本回單字統整表</span>
+        <span style="font-size: 0.75rem; color: #6b7280;">(點擊單字可查看詳情)</span>
+      </div>
+
+      <!-- 單字列表容器 (可捲動) -->
+      <div id="endlessWordListContainer" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; margin-bottom: 16px; max-height: 240px;"></div>
+
+      <!-- 底部返回主選單按鈕 -->
+      <button onclick="closeEndlessResultModalAndExit()" style="width: 100%; padding: 14px; border-radius: 9999px; border: none; background: #f59e0b; color: #000; font-size: 1rem; font-weight: bold; cursor: pointer;">退出並返回主選單</button>
+    </div>
+  </div>
   
 
   <div class="modal-overlay" id="instantFeedbackModal" onclick="skipInstantFeedback()">
@@ -3248,7 +3290,7 @@
     }
   });
   /* ===================================================
-     無盡刷題地下城 (Endless Dungeon) 修正版核心邏輯
+     無盡刷題地下城 (Endless Dungeon) 核心邏輯 (完全版)
      =================================================== */
   let endlessStats = {
     total: 0,
@@ -3256,7 +3298,8 @@
     wrong: 0,
     waterEarned: 0,
     currentWordObj: null,
-    currentMode: 'en2zh'
+    currentMode: 'en2zh',
+    history: [] // 記錄本次刷題過程中的所有單字紀錄
   };
 
   // 開啟無盡刷題副本
@@ -3267,14 +3310,15 @@
       return;
     }
 
-    // 重置統計數據
+    // 重置統計數據與歷史紀錄
     endlessStats = {
       total: 0,
       correct: 0,
       wrong: 0,
       waterEarned: 0,
       currentWordObj: null,
-      currentMode: 'en2zh'
+      currentMode: 'en2zh',
+      history: []
     };
 
     updateEndlessStatusUI();
@@ -3307,7 +3351,7 @@
     const allWords = getAllAvailableWords();
     if (allWords.length < 4) return;
 
-    // 隨機選取目標題目單字
+    // 隨機選取目標單字
     const targetIndex = Math.floor(Math.random() * allWords.length);
     const targetWord = allWords[targetIndex];
     endlessStats.currentWordObj = targetWord;
@@ -3324,10 +3368,9 @@
         options.push(randWord);
       }
     }
-    // 打亂選項順序
     options.sort(() => 0.5 - Math.random());
 
-    // UI 元件更新
+    // UI 元件參照
     const quizWordEl = document.getElementById('endlessQuizWord');
     const phoneticWrap = document.getElementById('endlessPhoneticWrap');
     const phoneticEl = document.getElementById('endlessPhonetic');
@@ -3335,25 +3378,22 @@
 
     const pos = targetWord.pos || targetWord.partOfSpeech || '';
     const trans = targetWord.trans || targetWord.translation || targetWord.meaning || targetWord.ch || '';
-    
-    // 多重相容取得 KK 音標欄位
     const phonetic = targetWord.phonetic || targetWord.kk || targetWord.phoneticSymbol || '';
 
     if (endlessStats.currentMode === 'en2zh') {
-      // 看英文選中文
+      // 看英文選中文：顯示音標與發音喇叭
       quizWordEl.innerText = targetWord.word;
       phoneticWrap.style.display = 'flex';
       phoneticEl.style.display = 'inline';
-      phoneticEl.innerText = phonetic ? `[ ${phonetic} ]` : '[ 音標無資料 ]';
-      speakEndlessWord(); // 自動朗讀發音
+      phoneticEl.innerText = phonetic ? `[ ${phonetic} ]` : '';
+      speakEndlessWord();
     } else {
-      // 看中文選英文
+      // 看中文選英文：將整個音標與喇叭區塊完全隱藏
       quizWordEl.innerText = `${pos} ${trans}`.trim();
-      phoneticWrap.style.display = 'flex';
-      phoneticEl.style.display = 'none'; // 隱藏英文音標避免爆雷，但保留右側發音按鈕可隨時點擊
+      phoneticWrap.style.display = 'none';
     }
 
-    // 渲染 4 個選項按鈕
+    // 渲染選項按鈕
     optionsContainer.innerHTML = '';
     options.forEach((optWord) => {
       const btn = document.createElement('button');
@@ -3377,6 +3417,17 @@
   function handleEndlessAnswer(isCorrect, targetWord) {
     endlessStats.total += 1;
 
+    // 寫入單字統計紀錄清單
+    const wordPos = targetWord.pos || targetWord.partOfSpeech || '';
+    const wordTrans = targetWord.trans || targetWord.translation || targetWord.meaning || targetWord.ch || '';
+    
+    endlessStats.history.push({
+      word: targetWord.word,
+      pos: wordPos,
+      trans: wordTrans,
+      isCorrect: isCorrect
+    });
+
     if (isCorrect) {
       endlessStats.correct += 1;
       endlessStats.waterEarned += 1;
@@ -3390,38 +3441,87 @@
     renderEndlessQuestion();
   }
 
-  // 1. 撤離前的確認詢問對話框
+  // 1. 點擊撤離按鈕：跳出二次確認內建彈窗
   function confirmEvacuateEndlessDungeon() {
     if (endlessStats.total === 0) {
       showPage('pageBattleDungeonLobby');
       return;
     }
-
-    // 若系統有內建 showCustomConfirm 則呼叫，否則退回原生 confirm 對話框
-    if (typeof showCustomConfirm === 'function') {
-      showCustomConfirm("🚪 確定撤離地下城？", "您確定要結束刷題並進行結算嗎？", () => {
-        evacuateEndlessDungeon();
-      });
-    } else {
-      if (confirm("🚪 確定要結束地下城刷題並進行結算嗎？")) {
-        evacuateEndlessDungeon();
-      }
-    }
+    const modal = document.getElementById('endlessConfirmModal');
+    if (modal) modal.style.display = 'flex';
   }
 
-  // 2. 正式執行撤離並顯示結算彈窗
-  function evacuateEndlessDungeon() {
-    const acc = Math.round((endlessStats.correct / endlessStats.total) * 100);
-    const msg = `🏰 【無盡刷題地下城】撤離結算\n\n` +
-                `答題總數：${endlessStats.total} 題\n` +
-                `答對題數：${endlessStats.correct} 題\n` +
-                `答錯題數：${endlessStats.wrong} 題\n` +
-                `答題正確率：${acc}%\n\n` +
-                `🎉 戰利品收穫：💧 +${endlessStats.waterEarned} 數據水滴！`;
+  // 關閉二次確認彈窗
+  function closeEndlessConfirmModal() {
+    const modal = document.getElementById('endlessConfirmModal');
+    if (modal) modal.style.display = 'none';
+  }
 
-    showCustomModal(msg, () => {
-      showPage('pageBattleDungeonLobby');
+  // 2. 確定撤離：關閉確認視窗，開啟完整結算小視窗
+  function executeEndlessSettlement() {
+    closeEndlessConfirmModal();
+
+    const total = endlessStats.total;
+    const correct = endlessStats.correct;
+    const wrong = endlessStats.wrong;
+    const water = endlessStats.waterEarned;
+    const acc = total > 0 ? Math.round((correct / total) * 100) : 100;
+
+    // 更新結算徽章與數據
+    const badgeEl = document.getElementById('endlessResultAccBadge');
+    badgeEl.innerText = `${acc}%`;
+    if (acc >= 80) badgeEl.style.background = '#10b981';
+    else if (acc >= 60) badgeEl.style.background = '#f59e0b';
+    else badgeEl.style.background = '#ef4444';
+
+    document.getElementById('endlessResultAccText').innerText = `正確率：${acc}%`;
+    document.getElementById('endlessResultStatsText').innerText = `總題數：${total} 題 | 答對：${correct} 題 | 答錯：${wrong} 題`;
+    document.getElementById('endlessResultWaterText').innerText = `💧 獲得數據水滴：+${water}`;
+
+    // 渲染「7000單字大挑戰」同款風格單字統整列表
+    const container = document.getElementById('endlessWordListContainer');
+    container.innerHTML = '';
+
+    endlessStats.history.forEach(item => {
+      const card = document.createElement('div');
+      card.style.cssText = `
+        background: #1c1c1e;
+        border-radius: 10px;
+        padding: 10px 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        text-align: left;
+        border: 1px solid #2c2c2e;
+        cursor: pointer;
+      `;
+      card.onclick = () => speakText(item.word);
+
+      const tagColor = item.isCorrect ? '#10b981' : '#ef4444';
+      const tagBg = item.isCorrect ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+      const tagText = item.isCorrect ? '✓ 答對' : '✕ 答錯';
+
+      card.innerHTML = `
+        <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px;">
+          <span style="font-weight: bold; color: #f59e0b; font-size: 1rem; margin-right: 8px;">${item.word}</span>
+          <span style="font-size: 0.85rem; color: #a1a1aa;">${item.pos} ${item.trans}</span>
+        </div>
+        <div style="background: ${tagBg}; color: ${tagColor}; font-size: 0.75rem; font-weight: bold; padding: 4px 8px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;">
+          ${tagText}
+        </div>
+      `;
+      container.appendChild(card);
     });
+
+    const resModal = document.getElementById('endlessResultModal');
+    if (resModal) resModal.style.display = 'flex';
+  }
+
+  // 關閉結算彈窗並離開
+  function closeEndlessResultModalAndExit() {
+    const resModal = document.getElementById('endlessResultModal');
+    if (resModal) resModal.style.display = 'none';
+    showPage('pageBattleDungeonLobby');
   }
 </script>
 </body>
